@@ -254,7 +254,7 @@ function IssueList({ onAuthFailure }) {
       <div>
         {controls}
         <div className="flex items-center justify-end gap-2 px-4 mb-3">
-          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-9 w-24 rounded-md" />
           <Skeleton className="h-8 w-16 rounded-md" />
         </div>
         <div className="grid grid-cols-2 gap-4 px-4">
@@ -300,7 +300,7 @@ function IssueList({ onAuthFailure }) {
         onClick={() => loadIssues({ forceFresh: true })}
         disabled={!canRefresh || isLoading}
         variant="outline"
-        className="h-8 px-3 text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
+        className="h-9 px-3 text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
         title={canRefresh ? 'Refresh' : 'Please wait before refreshing again'}
       >
         <RefreshCw className="w-3.5 h-3.5" />
