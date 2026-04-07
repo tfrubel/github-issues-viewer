@@ -25,7 +25,7 @@ function App() {
     <div className="w-full px-4 py-8">
       <div className="fixed top-4 left-4">
         <a
-          href="https://github.com/jonathanbossenger/github-issues-viewer"
+          href="https://github.com/tfrubel/github-issues-viewer"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"

@@ -3,6 +3,7 @@ import { fetchIssues } from '../../services/dataManager'
 import { shouldRefreshData, cacheKey } from '../../utils/cache'
 import { getPreferences, updatePreference } from '../../utils/preferences'
 import RepositoryGroup from '../RepositoryGroup/RepositoryGroup'
+import { Button } from '../ui/button'
 
 function SegmentedControl({ options, value, onChange, ariaLabel }) {
   return (
@@ -106,14 +107,15 @@ function IssueList({ onAuthFailure }) {
               { value: 'closed', label: 'Closed' },
             ]}
           />
-          <button
+          <Button
             onClick={() => loadIssues({ forceFresh: true })}
             disabled={!canRefresh || isLoading}
             className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             title={canRefresh ? 'Refresh' : 'Please wait before refreshing again'}
           >
             {isLoading ? 'Loading…' : 'Refresh'}
-          </button>
+          </Button>
+
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-gray-400" aria-hidden="true">
