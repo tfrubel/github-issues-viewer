@@ -25,3 +25,10 @@ Data flow:
 The cache layer exists specifically to avoid hammering GitHub's rate limit during a session — prefer routing new data fetches through `dataManager.fetchIssues` rather than calling `github.js` directly so caching/auth-failure handling stays consistent.
 
 Styling is Tailwind (config in `tailwind.config.js`, entry `src/index.css`). ESLint flat config lives in `eslint.config.js`.
+
+## UI Guidelines
+
+- **Always use shadcn/ui components** from `src/components/ui/` for any UI element — buttons, inputs, labels, cards, badges, separators, scroll areas, etc.
+- If a needed shadcn component doesn't exist in `src/components/ui/`, create it there following the existing pattern (CVA + `cn` utility, semantic token classes).
+- **Never use hardcoded Tailwind color classes** (`gray-*`, `blue-*`, `red-*`, etc.) for UI elements. Always use semantic tokens (`text-foreground`, `bg-muted`, `border-border`, `text-muted-foreground`, `text-destructive`, `bg-primary`, etc.) so dark mode works automatically.
+- Raw `<button>`, `<input>`, and `<label>` elements should be replaced with their shadcn equivalents (`Button`, `Input`, `Label`).
