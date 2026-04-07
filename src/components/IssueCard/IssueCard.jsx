@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Separator } from '../ui/separator'
+import { ScrollArea } from '../ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 function IssueCard({ issue }) {
@@ -85,9 +86,11 @@ function IssueCard({ issue }) {
         {expanded && hasBody && (
           <>
             <Separator className="my-3" />
-            <div className="text-xs text-foreground/70 whitespace-pre-wrap break-all max-h-64 overflow-y-auto pr-1 leading-relaxed">
-              {body}
-            </div>
+            <ScrollArea className="max-h-64">
+              <div className="text-xs text-foreground/70 whitespace-pre-wrap break-words leading-relaxed pr-3">
+                {body}
+              </div>
+            </ScrollArea>
           </>
         )}
       </CardContent>
