@@ -16,7 +16,7 @@ GitHub Issues Viewer is a single-page application that provides a clean, organiz
 
 ## Live Demo
 
-Try out the application at [https://jonathanbossenger.github.io/github-issues-viewer/](https://jonathanbossenger.github.io/github-issues-viewer/). See the [Authentication](#authentication) section for instructions on how to use it.
+Try out the application at [https://github.com/tfrubel/github-issues-viewer/](https://github-issues-viewer-two.vercel.app/). See the [Authentication](#authentication) section for instructions on how to use it.
 
 ## How to Use
 
@@ -29,17 +29,20 @@ Try out the application at [https://jonathanbossenger.github.io/github-issues-vi
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/github-issues-viewer.git
    cd github-issues-viewer
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Start the development server:
+
    ```bash
    npm run dev
    ```
@@ -51,9 +54,11 @@ Try out the application at [https://jonathanbossenger.github.io/github-issues-vi
 To deploy this application to your own web server:
 
 1. Create a production build:
+
    ```bash
    npm run build
    ```
+
    This will create a `dist` directory containing optimized static files.
 
 2. Upload the contents of the `dist` directory to your web server using your preferred method (FTP, SCP, rsync, etc.):
@@ -67,13 +72,14 @@ This app requires a GitHub Classic Personal Access Token (PAT) to function. Foll
 3. Give your token a descriptive name
 4. For scopes, select:
    - `repo` (Full control of private repositories)
-   This is required to access both public and private repository issues
+     This is required to access both public and private repository issues
 5. Click **Generate token**
 6. Copy your token immediately - you won't be able to see it again!
 
 **Important**: Keep your token secure and never commit it to version control. The app stores it locally and only uses it to make authenticated requests to GitHub's API.
 
 On the login screen:
+
 - Enter your GitHub username
 - Enter your Personal Access Token
 - Click **Login**
@@ -89,12 +95,14 @@ On the login screen:
 ## Technical Requirements
 
 ### Core Dependencies
+
 - React 18.2
 - Vite 5.0
 - Tailwind CSS 3.4
 - Axios 1.6
 
 ### Development Tools
+
 - ESLint 9.19
 - PostCSS
 - Autoprefixer
