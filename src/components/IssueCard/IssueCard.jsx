@@ -87,7 +87,7 @@ function IssueCard({ issue }) {
           <>
             <Separator className="my-3" />
             <ScrollArea className="max-h-64">
-              <div className="text-xs text-foreground/70 whitespace-pre-wrap break-words leading-relaxed pr-3">
+              <div className="text-xs text-foreground/70 whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed pr-3">
                 {body}
               </div>
             </ScrollArea>
