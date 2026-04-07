@@ -46,19 +46,59 @@ export const validateCredentials = async (username, pat) => {
   }
 }
 
+// Fetch the most recently active repositories the viewer has access to.
+// Used to scope the "All" tab without scanning every repo on GitHub.
+const fetchViewerRepos = async (client, limit = 30) => {
+  const query = `
+    query ViewerRepos($first: Int!) {
+      viewer {
+        repositories(
+          first: $first,
+          orderBy: { field: PUSHED_AT, direction: DESC },
+          ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER],
+          isArchived: false
+        ) {
+          nodes { nameWithOwner }
+        }
+      }
+    }
+  `
+  const response = await client.post('', { query, variables: { first: limit } })
+  if (response.data.errors) {
+    throw new Error(response.data.errors[0].message)
+  }
+  return response.data.data.viewer.repositories.nodes.map(r => r.nameWithOwner)
+}
+
 export const fetchUserIssues = async (pat, username, { state = 'open', scope = 'me' } = {}) => {
   try {
     const client = createGitHubClient(pat)
     const stateQ = state === 'closed' ? 'is:closed' : 'is:open'
-    // "Only Me" => issues assigned to user. "All" => any issue the user is involved in
-    // (author, assignee, mentioned, commenter). This keeps the result set scoped and
-    // avoids hammering the GraphQL search API.
-    const scopeQ = scope === 'all' ? `involves:${username}` : `assignee:${username}`
-    const searchQuery = `is:issue ${stateQ} ${scopeQ} -archived:true`
+
+    // Scope mapping:
+    //   'me'       => assignee:<user>     (Assigned to me)
+    //   'relevant' => involves:<user>     (author, assignee, mentioned, commenter)
+    //   'all'      => every issue in the repos the viewer has access to
+    let searchQuery
+    let pageSize
+    if (scope === 'all') {
+      const repos = await fetchViewerRepos(client, 30)
+      if (repos.length === 0) {
+        return { search: { nodes: [] } }
+      }
+      const repoQ = repos.map(r => `repo:${r}`).join(' ')
+      searchQuery = `is:issue ${stateQ} ${repoQ} -archived:true`
+      pageSize = 50
+    } else {
+      const scopeQ = scope === 'relevant' ? `involves:${username}` : `assignee:${username}`
+      searchQuery = `is:issue ${stateQ} ${scopeQ} -archived:true`
+      pageSize = 100
+    }
+    searchQuery = searchQuery.replace(/\s+/g, ' ').trim()
 
     const query = `
-      query Search($q: String!) {
-        search(query: $q, type: ISSUE, first: 100) {
+      query Search($q: String!, $first: Int!) {
+        search(query: $q, type: ISSUE, first: $first) {
           nodes {
             ... on Issue {
               id
@@ -89,7 +129,7 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
       }
     `
 
-    const response = await client.post('', { query, variables: { q: searchQuery } })
+    const response = await client.post('', { query, variables: { q: searchQuery, first: pageSize } })
 
     if (response.data.errors) {
       throw new Error(response.data.errors[0].message)

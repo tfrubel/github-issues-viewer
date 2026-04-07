@@ -24,9 +24,12 @@ function RepositoryGroup({ repository, state = 'open', scope = 'me' }) {
   const initiallyCollapsed = !!getPreferences().collapsed[nameWithOwner]
   const [collapsed, setCollapsed] = useState(initiallyCollapsed)
 
-  const stateQ = state === 'closed' ? 'state%3Aclosed' : 'state%3Aopen'
-  const assigneeQ = scope === 'all' ? '' : `+assignee%3A${viewerLogin}`
-  const issuesUrl = `https://github.com/${nameWithOwner}/issues?q=is%3Aissue+${stateQ}${assigneeQ}`
+  const stateQ = state === 'closed' ? '+state%3Aclosed' : '+state%3Aopen'
+  const userQ =
+    scope === 'me' ? `+assignee%3A${viewerLogin}` :
+    scope === 'relevant' ? `+involves%3A${viewerLogin}` :
+    ''
+  const issuesUrl = `https://github.com/${nameWithOwner}/issues?q=is%3Aissue${stateQ}${userQ}`
 
   const handleToggle = () => {
     toggleCollapsed(nameWithOwner)

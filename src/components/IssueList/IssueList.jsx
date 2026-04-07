@@ -77,10 +77,26 @@ function IssueList({ onAuthFailure }) {
 
   const canRefresh = shouldRefreshData(cacheKey(scope, state))
 
+  const scopeHints = {
+    me: 'Issues assigned to you across all repositories.',
+    relevant: 'Issues you authored, are assigned to, were mentioned in, or commented on.',
+    all: 'Every issue in your 30 most recently active repositories (owner, collaborator, or org member).',
+  }
+
   return (
     <div>
       <div className="flex flex-col items-center mb-6 px-4 space-y-3">
         <div className="flex flex-wrap justify-center items-center gap-3">
+          <SegmentedControl
+            ariaLabel="Assignee scope"
+            value={scope}
+            onChange={handleScopeChange}
+            options={[
+              { value: 'me', label: 'Assigned to me' },
+              { value: 'relevant', label: 'Relevant' },
+              { value: 'all', label: 'All' },
+            ]}
+          />
           <SegmentedControl
             ariaLabel="Issue state"
             value={state}
@@ -88,15 +104,6 @@ function IssueList({ onAuthFailure }) {
             options={[
               { value: 'open', label: 'Open' },
               { value: 'closed', label: 'Closed' },
-            ]}
-          />
-          <SegmentedControl
-            ariaLabel="Assignee scope"
-            value={scope}
-            onChange={handleScopeChange}
-            options={[
-              { value: 'me', label: 'Only Me' },
-              { value: 'all', label: 'All' },
             ]}
           />
           <button
@@ -108,7 +115,13 @@ function IssueList({ onAuthFailure }) {
             {isLoading ? 'Loading…' : 'Refresh'}
           </button>
         </div>
-        <div className="text-xs text-gray-500 h-4">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-gray-400" aria-hidden="true">
+            <path fillRule="evenodd" d="M18 10A8 8 0 11.999 9.999 8 8 0 0118 10zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          <span>{scopeHints[scope]}</span>
+        </div>
+        <div className="text-[11px] text-gray-400 h-4">
           {lastRefreshTime && !isLoading && (
             <span>Last updated: {new Date(lastRefreshTime).toLocaleTimeString()}</span>
           )}
@@ -125,7 +138,7 @@ function IssueList({ onAuthFailure }) {
         </div>
       ) : repositories.length === 0 ? (
         <div className="text-center text-gray-600 py-10">
-          No {state} issues found
+          No issues found
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 mx-[-1rem] px-4">
