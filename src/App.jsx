@@ -3,13 +3,24 @@ import { hasValidCredentials, clearCredentials } from './utils/localStorage'
 import { clearCache } from './utils/cache'
 import LoginForm from './components/LoginForm/LoginForm'
 import IssueList from './components/IssueList/IssueList'
+import { Button } from './components/ui/button'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isDark, setIsDark] = useState(() => {
+    const stored = localStorage.getItem('theme')
+    if (stored) return stored === 'dark'
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
 
   useEffect(() => {
     setIsAuthenticated(hasValidCredentials())
   }, [])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark)
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+  }, [isDark])
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true)
@@ -23,6 +34,24 @@ function App() {
 
   return (
     <div className="w-full px-4 py-8">
+      <div className="fixed top-4 right-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setIsDark(d => !d)}
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            </svg>
+          )}
+        </Button>
+      </div>
       <div className="fixed top-4 left-4">
         <a
           href="https://github.com/tfrubel/github-issues-viewer"
