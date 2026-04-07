@@ -4,7 +4,7 @@ const defaults = {
   scope: 'me',        // 'me' | 'all'
   state: 'open',      // 'open' | 'closed'
   collapsed: {},      // { [repoNameWithOwner]: true }
-  viewMode: 'grid',   // 'grid' | 'list'
+  viewMode: 'list',   // 'grid' | 'list'
 }
 
 export const getPreferences = () => {
