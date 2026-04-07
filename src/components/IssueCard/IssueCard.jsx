@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { cn } from '@/lib/utils'
 
 function IssueCard({ issue }) {
-  const { title, body, url, createdAt, labels, state } = issue
+  const { title, body, url, createdAt, labels, state, author } = issue
   const isClosed = state === 'CLOSED'
   const hasBody = !!(body && body.trim())
 
@@ -19,7 +19,7 @@ function IssueCard({ issue }) {
   })
 
   const card = (
-    <Card size="sm" className="gap-0 py-0 shadow-xs hover:shadow-sm transition-shadow">
+    <Card size="sm" className="gap-0 py-0 shadow-none hover:shadow-md transition-shadow duration-300">
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2 mb-2">
           <h3 className={cn(
@@ -50,6 +50,16 @@ function IssueCard({ issue }) {
         <div className="flex flex-col gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2 flex-wrap">
             <span>{formattedDate}</span>
+            {author && (
+              <span className="inline-flex items-center gap-1">
+                <img
+                  src={`https://github.com/${author.login}.png?size=16`}
+                  alt={author.login}
+                  className="w-3.5 h-3.5 rounded-full"
+                />
+                <span className="truncate max-w-[80px]">{author.login}</span>
+              </span>
+            )}
             {isClosed && (
               <Badge variant="secondary" className="text-[10px] uppercase tracking-wide h-4 px-1.5">
                 Closed
@@ -102,6 +112,16 @@ function IssueCard({ issue }) {
           </DialogTitle>
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
             <span>{formattedDate}</span>
+            {author && (
+              <span className="inline-flex items-center gap-1">
+                <img
+                  src={`https://github.com/${author.login}.png?size=16`}
+                  alt={author.login}
+                  className="w-3.5 h-3.5 rounded-full"
+                />
+                <span>{author.login}</span>
+              </span>
+            )}
             {isClosed && (
               <Badge variant="secondary" className="text-[10px] uppercase tracking-wide h-4 px-1.5">
                 Closed
@@ -142,7 +162,7 @@ function IssueCard({ issue }) {
             [&_img]:max-w-full [&_img]:rounded
             [&_table]:w-full [&_table]:text-xs [&_table]:mb-3
             [&_th]:text-left [&_th]:font-medium [&_th]:border-b [&_th]:border-border [&_th]:pb-1 [&_th]:pr-3
-            [&_td]:border-b [&_td]:border-border/50 [&_td]:py-1 [&_td]:pr-3">
+            [&_td]:border-b [&_td]:border-border/50 [&_td]:py-1 [&_td]:pr-3 content">
             <ReactMarkdown>{body}</ReactMarkdown>
           </div>
         </ScrollArea>

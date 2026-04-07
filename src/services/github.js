@@ -107,6 +107,9 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
               url
               state
               createdAt
+              author {
+                login
+              }
               labels(first: 10) {
                 nodes {
                   id
