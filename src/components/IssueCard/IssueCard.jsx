@@ -119,7 +119,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
           <div className="flex items-start gap-2">
             <span
               className={cn(
-                'text-[15px] font-medium break-words line-clamp-2 flex-1 min-w-0',
+                'text-base font-medium break-words line-clamp-2 flex-1 min-w-0',
                 isClosed && 'text-muted-foreground'
               )}
               title={title}
@@ -144,7 +144,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
           </div>
 
           {/* Row 2: repo · labels · author · date */}
-          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground/70">
+          <div className="flex items-center gap-2 flex-wrap text-[13px] text-muted-foreground/70">
             {_repoKey && (
               <span className="inline-flex items-center gap-1 shrink-0" title={_repoKey}>
                 <GitBranch className="w-3 h-3 opacity-60 shrink-0" />
@@ -157,7 +157,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
             {labels.nodes.map(label => (
               <span
                 key={label.id}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium shrink-0"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium shrink-0"
                 style={{ backgroundColor: `#${label.color}`, color: labelTextColor(label.color) }}
                 title={label.name}
               >
@@ -210,7 +210,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
         {/* Title row */}
         <div className="flex items-start justify-between gap-2 mb-2.5">
           <h3 className={cn(
-            'text-[15px] font-medium leading-snug break-words line-clamp-2 flex-1 min-w-0',
+            'text-base font-medium leading-snug break-words line-clamp-2 flex-1 min-w-0',
             isClosed && 'text-muted-foreground'
           )}>
             {title}
@@ -235,7 +235,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
         </div>
 
         {/* Author + date */}
-        <div className="flex items-center gap-2 flex-wrap text-[13px] text-muted-foreground mb-2">
+        <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground mb-2">
           {author && (
             <span className="inline-flex items-center gap-1">
               <img
@@ -255,7 +255,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
             {labels.nodes.map(label => (
               <span
                 key={label.id}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium truncate max-w-[120px]"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[13px] font-medium truncate max-w-[120px]"
                 style={{ backgroundColor: `#${label.color}`, color: labelTextColor(label.color) }}
                 title={label.name}
               >
@@ -269,7 +269,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
         {_repoKey && (
           <div className="flex items-center gap-1">
             <GitBranch className="w-3 h-3 text-muted-foreground/40 shrink-0" />
-            <span className="text-[11px] text-muted-foreground/50 truncate" title={_repoKey}>
+            <span className="text-xs text-muted-foreground/50 truncate" title={_repoKey}>
               {_repoKey}
             </span>
           </div>
