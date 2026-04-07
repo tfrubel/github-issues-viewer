@@ -34,7 +34,17 @@ function App() {
 
   return (
     <div className="w-full px-4 py-8">
-      <div className="fixed top-4 right-4">
+      <div className="fixed top-4 right-4 flex items-center gap-2">
+        {isAuthenticated && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAuthFailure}
+            aria-label="Logout"
+          >
+            Logout
+          </Button>
+        )}
         <Button
           variant="outline"
           size="icon"
@@ -57,7 +67,7 @@ function App() {
           href="https://github.com/tfrubel/github-issues-viewer"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
           title="View source on GitHub"
         >
           <svg
