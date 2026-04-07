@@ -22,7 +22,7 @@ export const validateCredentials = async (username, pat) => {
         }
       }
     `
-    
+
     const response = await client.post('', {
       query,
       variables: { username }
@@ -46,22 +46,26 @@ export const validateCredentials = async (username, pat) => {
   }
 }
 
-export const fetchUserIssues = async (pat, username) => {
+export const fetchUserIssues = async (pat, username, { state = 'open', scope = 'me' } = {}) => {
   try {
     const client = createGitHubClient(pat)
+    const stateQ = state === 'closed' ? 'is:closed' : 'is:open'
+    // "Only Me" => issues assigned to user. "All" => any issue the user is involved in
+    // (author, assignee, mentioned, commenter). This keeps the result set scoped and
+    // avoids hammering the GraphQL search API.
+    const scopeQ = scope === 'all' ? `involves:${username}` : `assignee:${username}`
+    const searchQuery = `is:issue ${stateQ} ${scopeQ} -archived:true`
+
     const query = `
-      query {
-        search(
-          query: "is:issue is:open assignee:${username} -archived:true"
-          type: ISSUE
-          first: 100
-        ) {
+      query Search($q: String!) {
+        search(query: $q, type: ISSUE, first: 100) {
           nodes {
             ... on Issue {
               id
               title
               body
               url
+              state
               createdAt
               labels(first: 10) {
                 nodes {
@@ -84,14 +88,13 @@ export const fetchUserIssues = async (pat, username) => {
         }
       }
     `
-    
-    const response = await client.post('', { query })
+
+    const response = await client.post('', { query, variables: { q: searchQuery } })
 
     if (response.data.errors) {
       throw new Error(response.data.errors[0].message)
     }
 
-    console.log(response.data);
     return response.data.data
   } catch (error) {
     if (error.response?.status === 401) {
@@ -100,5 +103,3 @@ export const fetchUserIssues = async (pat, username) => {
     throw error
   }
 }
-
-// GitHub API service will go here 

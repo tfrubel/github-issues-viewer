@@ -2,7 +2,8 @@ import { useState } from 'react'
 
 function IssueCard({ issue }) {
   const [showDescription, setShowDescription] = useState(false)
-  const { title, body, url, createdAt, labels } = issue
+  const { title, body, url, createdAt, labels, state } = issue
+  const isClosed = state === 'CLOSED'
 
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -22,9 +23,16 @@ function IssueCard({ issue }) {
         rel="noopener noreferrer"
         className="block"
       >
-        <h3 className="text-sm font-medium text-gray-900 mb-2 line-clamp-2">{title}</h3>
+        <h3 className={`text-sm font-medium mb-2 line-clamp-2 ${isClosed ? 'text-gray-500' : 'text-gray-900'}`}>{title}</h3>
         <div className="flex flex-col gap-2 text-xs text-gray-500">
-          <span>{formattedDate}</span>
+          <div className="flex items-center gap-2">
+            <span>{formattedDate}</span>
+            {isClosed && (
+              <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-semibold uppercase tracking-wide">
+                Closed
+              </span>
+            )}
+          </div>
           {labels.nodes.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {labels.nodes.map(label => (
