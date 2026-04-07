@@ -86,7 +86,7 @@ function IssueCard({ issue }) {
         {expanded && hasBody && (
           <>
             <Separator className="my-3" />
-            <ScrollArea className="max-h-64">
+            <ScrollArea className="max-h-64 [&_[data-slot=scroll-area-viewport]]:max-h-64">
               <div className="text-xs text-foreground/70 whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed pr-3">
                 {body}
               </div>
