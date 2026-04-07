@@ -2,7 +2,6 @@ import ReactMarkdown from 'react-markdown'
 import { ExternalLink, FileText, GitBranch } from 'lucide-react'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
-import { ScrollArea } from '../ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog'
 import { cn } from '@/lib/utils'
 
@@ -55,7 +54,7 @@ function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body
             ))}
           </div>
         </DialogHeader>
-        <ScrollArea className="flex-1 min-h-0 [&_[data-slot=scroll-area-viewport]]:max-h-[calc(80vh-8rem)]">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <div className="px-5 py-4 text-sm text-foreground/80 leading-relaxed
             prose prose-sm max-w-none
             [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mb-2 [&_h1]:mt-4
@@ -79,7 +78,7 @@ function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body
             [&_td]:border-b [&_td]:border-border/50 [&_td]:py-1 [&_td]:pr-3 content">
             <ReactMarkdown>{body}</ReactMarkdown>
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   )
