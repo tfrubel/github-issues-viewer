@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchAllIssues } from '../../services/dataManager'
 import { shouldRefreshData, cacheKey } from '../../utils/cache'
 import { getPreferences, updatePreference } from '../../utils/preferences'
 import IssueCard from '../IssueCard/IssueCard'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
-import { Card, CardContent } from '../ui/card'
 import { ScrollArea } from '../ui/scroll-area'
-import { ChevronLeft } from 'lucide-react'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../ui/select'
+import { Building2, GitBranch, User, RefreshCw, X, Info, LayoutGrid, List } from 'lucide-react'
 
 function SegmentedControl({ options, value, onChange, ariaLabel }) {
   return (
@@ -38,69 +38,32 @@ function SegmentedControl({ options, value, onChange, ariaLabel }) {
   )
 }
 
-function OrgCard({ org, repos, onSelect }) {
-  const repoList = Object.values(repos)
-  const totalOpen = repoList.reduce((sum, r) => sum + r.open.length, 0)
-  const totalClosed = repoList.reduce((sum, r) => sum + r.closed.length, 0)
+const ALL_VALUE = '__all__'
+
+function FilterDropdown({ icon: Icon, label, value, onChange, options }) {
+  const hasValue = value !== ''
+  const selectValue = value === '' ? ALL_VALUE : value
+  const handleChange = (val) => onChange(val === ALL_VALUE ? '' : val)
 
   return (
-    <Card
-      className="cursor-pointer hover:shadow-md hover:border-primary/50 transition-all"
-      onClick={() => onSelect(org)}
-    >
-      <CardContent className="p-4">
-        <h3 className="font-semibold text-foreground text-base mb-3 truncate" title={org}>{org}</h3>
-        <div className="flex flex-col gap-1.5 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Repositories</span>
-            <Badge variant="secondary">{repoList.length}</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Open</span>
-            <Badge variant="outline" className="border-primary/40 text-primary">{totalOpen}</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Closed</span>
-            <Badge variant="secondary">{totalClosed}</Badge>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function RepoCard({ repo, onSelect }) {
-  return (
-    <Card
-      className="cursor-pointer hover:shadow-md hover:border-primary/50 transition-all"
-      onClick={() => onSelect(repo.nameWithOwner)}
-    >
-      <CardContent className="p-4">
-        <h3 className="font-semibold text-foreground text-sm mb-3 truncate" title={repo.nameWithOwner}>
-          {repo.name}
-        </h3>
-        <div className="flex flex-col gap-1.5 text-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-              <span className="text-muted-foreground">Open</span>
-            </div>
-            <Badge variant="outline" className="border-primary/40 text-primary tabular-nums h-4 px-1.5">
-              {repo.open.length}
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/40 shrink-0" />
-              <span className="text-muted-foreground">Closed</span>
-            </div>
-            <Badge variant="secondary" className="tabular-nums h-4 px-1.5">
-              {repo.closed.length}
-            </Badge>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <Select value={selectValue} onValueChange={handleChange}>
+      <SelectTrigger
+        className={`h-8 min-w-[130px] max-w-[200px] rounded-full text-sm pl-2.5 pr-2 gap-1.5 ${
+          hasValue ? 'border-primary/60 bg-primary/5 text-foreground' : 'text-muted-foreground'
+        }`}
+      >
+        <Icon className="w-3.5 h-3.5 shrink-0" />
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_VALUE}>{label === 'Repository' ? 'All Repositories' : `All ${label}s`}</SelectItem>
+        {options.map(opt => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -118,10 +81,10 @@ function IssueList({ onAuthFailure }) {
   const [error, setError] = useState(null)
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
-  // Navigation state
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'repos' | 'issues'
-  const [selectedOrg, setSelectedOrg] = useState(null)
-  const [selectedRepoKey, setSelectedRepoKey] = useState(null)
+  const [filterOrg, setFilterOrg] = useState('')
+  const [filterRepo, setFilterRepo] = useState('')
+  const [filterAuthor, setFilterAuthor] = useState('')
+  const [viewMode, setViewMode] = useState(initialPrefs.viewMode)
 
   const loadIssues = useCallback(async (opts = {}) => {
     const { forceFresh = false, scope: s = scope } = opts
@@ -149,26 +112,81 @@ function IssueList({ onAuthFailure }) {
   const handleScopeChange = (val) => {
     updatePreference({ scope: val })
     setScope(val)
-    setView('dashboard')
-    setSelectedOrg(null)
-    setSelectedRepoKey(null)
+    setFilterOrg('')
+    setFilterRepo('')
+    setFilterAuthor('')
   }
 
-  const handleOrgSelect = (org) => {
-    setSelectedOrg(org)
-    setView('repos')
-  }
+  const { allOpen, allClosed, orgOptions, repoOptions, authorOptions } = useMemo(() => {
+    const allOpen = []
+    const allClosed = []
+    const orgSet = new Set()
+    const repoMap = new Map()
+    const authorMap = new Map()
 
-  const handleRepoSelect = (repoKey) => {
-    setSelectedRepoKey(repoKey)
-    setView('issues')
-  }
+    for (const [org, orgRepos] of Object.entries(orgData)) {
+      orgSet.add(org)
+      for (const [, repo] of Object.entries(orgRepos)) {
+        repoMap.set(repo.nameWithOwner, { value: repo.nameWithOwner, label: repo.name, org })
+        for (const issue of repo.open) {
+          allOpen.push({ ...issue, _repoName: repo.name, _repoKey: repo.nameWithOwner, _org: org })
+          if (issue.author?.login) authorMap.set(issue.author.login, true)
+        }
+        for (const issue of repo.closed) {
+          allClosed.push({ ...issue, _repoName: repo.name, _repoKey: repo.nameWithOwner, _org: org })
+          if (issue.author?.login) authorMap.set(issue.author.login, true)
+        }
+      }
+    }
 
+    const orgOptions = Array.from(orgSet).sort().map(o => ({ value: o, label: o }))
+    const repoOptions = Array.from(repoMap.values()).sort((a, b) => a.label.localeCompare(b.label))
+    const authorOptions = Array.from(authorMap.keys()).sort().map(a => ({ value: a, label: a }))
+
+    return { allOpen, allClosed, orgOptions, repoOptions, authorOptions }
+  }, [orgData])
+
+  const filteredRepoOptions = useMemo(() => {
+    if (!filterOrg) return repoOptions
+    return repoOptions.filter(r => r.org === filterOrg)
+  }, [repoOptions, filterOrg])
+
+  const filteredOpen = useMemo(() =>
+    allOpen.filter(issue => {
+      if (filterOrg && issue._org !== filterOrg) return false
+      if (filterRepo && issue._repoKey !== filterRepo) return false
+      if (filterAuthor && issue.author?.login !== filterAuthor) return false
+      return true
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allOpen, filterOrg, filterRepo, filterAuthor]
+  )
+
+  const filteredClosed = useMemo(() =>
+    allClosed.filter(issue => {
+      if (filterOrg && issue._org !== filterOrg) return false
+      if (filterRepo && issue._repoKey !== filterRepo) return false
+      if (filterAuthor && issue.author?.login !== filterAuthor) return false
+      return true
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allClosed, filterOrg, filterRepo, filterAuthor]
+  )
+
+  const hasFilters = filterOrg || filterRepo || filterAuthor
   const canRefresh = shouldRefreshData(cacheKey(scope, 'both'))
-  const sortedOrgs = Object.keys(orgData).sort()
+
+  const handleOrgChange = (val) => {
+    setFilterOrg(val)
+    if (val && filterRepo) {
+      const stillValid = repoOptions.find(r => r.value === filterRepo && r.org === val)
+      if (!stillValid) setFilterRepo('')
+    }
+  }
 
   const controls = (
-    <div className="flex flex-col items-center mb-6 px-4 space-y-2">
+    <div className="flex flex-col items-center mb-5 px-4 space-y-3">
+      {/* Scope + Refresh */}
       <div className="flex flex-wrap justify-center items-center gap-3">
         <SegmentedControl
           ariaLabel="Assignee scope"
@@ -184,21 +202,74 @@ function IssueList({ onAuthFailure }) {
           onClick={() => loadIssues({ forceFresh: true })}
           disabled={!canRefresh || isLoading}
           variant="outline"
-          className="px-4 py-1.5 text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-8 px-3 text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
           title={canRefresh ? 'Refresh' : 'Please wait before refreshing again'}
         >
+          <RefreshCw className="w-3.5 h-3.5" />
           {isLoading ? 'Loading…' : 'Refresh'}
         </Button>
+
+        {/* View mode toggle */}
+        <div className="inline-flex rounded-full border border-border bg-muted overflow-hidden">
+          <button
+            onClick={() => { setViewMode('grid'); updatePreference({ viewMode: 'grid' }) }}
+            className={`p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            title="Grid view"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => { setViewMode('list'); updatePreference({ viewMode: 'list' }) }}
+            className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            title="List view"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap justify-center items-center gap-2">
+        <FilterDropdown
+          icon={Building2}
+          label="Organization"
+          value={filterOrg}
+          onChange={handleOrgChange}
+          options={orgOptions}
+        />
+        <FilterDropdown
+          icon={GitBranch}
+          label="Repository"
+          value={filterRepo}
+          onChange={setFilterRepo}
+          options={filteredRepoOptions}
+        />
+        <FilterDropdown
+          icon={User}
+          label="Creator"
+          value={filterAuthor}
+          onChange={setFilterAuthor}
+          options={authorOptions}
+        />
+        {hasFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setFilterOrg(''); setFilterRepo(''); setFilterAuthor('') }}
+            className="h-8 px-2.5 rounded-full text-xs text-muted-foreground hover:text-foreground gap-1"
+          >
+            <X className="w-3 h-3" />
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {/* Hint + timestamp */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
-          <path fillRule="evenodd" d="M18 10A8 8 0 11.999 9.999 8 8 0 0118 10zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-        </svg>
+        <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         <span>{scopeHints[scope]}</span>
-      </div>
-      <div className="text-[11px] text-muted-foreground h-4">
         {lastRefreshTime && !isLoading && (
-          <span>Last updated: {new Date(lastRefreshTime).toLocaleTimeString()}</span>
+          <span className="opacity-60">· {new Date(lastRefreshTime).toLocaleTimeString()}</span>
         )}
       </div>
     </div>
@@ -226,140 +297,56 @@ function IssueList({ onAuthFailure }) {
     )
   }
 
-  if (sortedOrgs.length === 0) {
-    return (
-      <div>
-        {controls}
-        <div className="text-center text-muted-foreground py-10">No issues found</div>
-      </div>
-    )
-  }
-
-  // Screen 1 — Dashboard: grid of org/owner cards
-  if (view === 'dashboard') {
-    return (
-      <div>
-        {controls}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 px-4">
-          {sortedOrgs.map(org => (
-            <OrgCard key={org} org={org} repos={orgData[org]} onSelect={handleOrgSelect} />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // Screen 2 — Repos: grid of repository cards for selected org
-  if (view === 'repos') {
-    const repos = orgData[selectedOrg] || {}
-    const sortedRepos = Object.values(repos).sort((a, b) =>
-      a.nameWithOwner.localeCompare(b.nameWithOwner)
-    )
-
-    return (
-      <div>
-        {controls}
-        <div className="flex items-center gap-1.5 mb-4 px-4 text-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setView('dashboard'); setSelectedOrg(null) }}
-            className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground h-7 px-2"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            Dashboard
-          </Button>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-semibold text-foreground">{selectedOrg}</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 px-4">
-          {sortedRepos.map(repo => (
-            <RepoCard key={repo.nameWithOwner} repo={repo} onSelect={handleRepoSelect} />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // Screen 3 — Issues: two-column open/closed for selected repo
-  if (view === 'issues') {
-    const repo = orgData[selectedOrg]?.[selectedRepoKey]
-    if (!repo) return null
-
-    return (
-      <div>
-        {controls}
-        <div className="flex items-center gap-1.5 mb-4 px-4 text-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setView('dashboard'); setSelectedOrg(null); setSelectedRepoKey(null) }}
-            className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground h-7 px-2"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            Dashboard
-          </Button>
-          <span className="text-muted-foreground">/</span>
-          <button
-            onClick={() => { setView('repos'); setSelectedRepoKey(null) }}
-            className="text-muted-foreground hover:text-foreground font-medium"
-          >
-            {selectedOrg}
-          </button>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-semibold text-foreground">{repo.name}</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 px-4">
-          {/* Open Issues */}
-          <div className="flex flex-col min-h-0">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-              <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" />
-              <h3 className="font-semibold text-foreground">Open Issues</h3>
-              <Badge variant="outline" className="border-primary/40 text-primary tabular-nums">
-                {repo.open.length}
-              </Badge>
-            </div>
-            <ScrollArea className="h-[calc(100vh-320px)] rounded-lg border border-border bg-muted/30">
-              <div className="space-y-2 p-2">
-                {repo.open.length === 0 ? (
-                  <p className="text-muted-foreground text-sm py-8 text-center">No open issues</p>
-                ) : (
-                  repo.open.map(issue => (
-                    <IssueCard key={issue.id} issue={issue} />
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+  return (
+    <div>
+      {controls}
+      <div className="grid grid-cols-2 gap-4 px-4">
+        {/* Open Issues */}
+        <div className="flex flex-col min-h-0">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+            <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" />
+            <h3 className="font-semibold text-foreground">Open Issues</h3>
+            <Badge variant="outline" className="border-primary/40 text-primary tabular-nums">
+              {filteredOpen.length}
+            </Badge>
           </div>
-
-          {/* Closed Issues */}
-          <div className="flex flex-col min-h-0">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 shrink-0" />
-              <h3 className="font-semibold text-foreground">Closed Issues</h3>
-              <Badge variant="secondary" className="tabular-nums">
-                {repo.closed.length}
-              </Badge>
+          <ScrollArea className="h-[calc(100vh-320px)] rounded-lg border border-border bg-muted/30">
+            <div className={viewMode === 'list' ? 'p-1' : 'grid grid-cols-2 gap-2 p-2'}>
+              {filteredOpen.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-8 text-center">No open issues</p>
+              ) : (
+                filteredOpen.map(issue => (
+                  <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
+                ))
+              )}
             </div>
-            <ScrollArea className="h-[calc(100vh-320px)] rounded-lg border border-border bg-muted/30">
-              <div className="space-y-2 p-2">
-                {repo.closed.length === 0 ? (
-                  <p className="text-muted-foreground text-sm py-8 text-center">No closed issues</p>
-                ) : (
-                  repo.closed.map(issue => (
-                    <IssueCard key={issue.id} issue={issue} />
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+          </ScrollArea>
+        </div>
+
+        {/* Closed Issues */}
+        <div className="flex flex-col min-h-0">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+            <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 shrink-0" />
+            <h3 className="font-semibold text-foreground">Closed Issues</h3>
+            <Badge variant="secondary" className="tabular-nums">
+              {filteredClosed.length}
+            </Badge>
           </div>
+          <ScrollArea className="h-[calc(100vh-320px)] rounded-lg border border-border bg-muted/30">
+            <div className={viewMode === 'list' ? 'p-1' : 'grid grid-cols-2 gap-2 p-2'}>
+              {filteredClosed.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-8 text-center">No closed issues</p>
+              ) : (
+                filteredClosed.map(issue => (
+                  <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }
 
 export default IssueList

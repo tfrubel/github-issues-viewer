@@ -3,7 +3,8 @@ const PREFS_KEY = 'github_issues_prefs'
 const defaults = {
   scope: 'me',        // 'me' | 'all'
   state: 'open',      // 'open' | 'closed'
-  collapsed: {}       // { [repoNameWithOwner]: true }
+  collapsed: {},      // { [repoNameWithOwner]: true }
+  viewMode: 'grid',   // 'grid' | 'list'
 }
 
 export const getPreferences = () => {
