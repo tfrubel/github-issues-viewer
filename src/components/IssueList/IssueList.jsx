@@ -10,7 +10,7 @@ function SegmentedControl({ options, value, onChange, ariaLabel }) {
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex p-1 bg-gray-100 rounded-full border border-gray-200"
+      className="inline-flex p-1 bg-muted rounded-full border border-border"
     >
       {options.map(opt => {
         const active = opt.value === value
@@ -22,8 +22,8 @@ function SegmentedControl({ options, value, onChange, ariaLabel }) {
             onClick={() => onChange(opt.value)}
             className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
               active
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {opt.label}
@@ -110,20 +110,21 @@ function IssueList({ onAuthFailure }) {
           <Button
             onClick={() => loadIssues({ forceFresh: true })}
             disabled={!canRefresh || isLoading}
-            className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="outline"
+            className="px-4 py-1.5 text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
             title={canRefresh ? 'Refresh' : 'Please wait before refreshing again'}
           >
             {isLoading ? 'Loading…' : 'Refresh'}
           </Button>
 
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-gray-400" aria-hidden="true">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
             <path fillRule="evenodd" d="M18 10A8 8 0 11.999 9.999 8 8 0 0118 10zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <span>{scopeHints[scope]}</span>
         </div>
-        <div className="text-[11px] text-gray-400 h-4">
+        <div className="text-[11px] text-muted-foreground h-4">
           {lastRefreshTime && !isLoading && (
             <span>Last updated: {new Date(lastRefreshTime).toLocaleTimeString()}</span>
           )}
@@ -132,14 +133,14 @@ function IssueList({ onAuthFailure }) {
 
       {isLoading ? (
         <div className="flex justify-center items-center min-h-[200px]">
-          <div className="text-gray-600">Loading issues…</div>
+          <div className="text-muted-foreground">Loading issues…</div>
         </div>
       ) : error ? (
-        <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="max-w-2xl mx-auto bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded">
           {error}
         </div>
       ) : repositories.length === 0 ? (
-        <div className="text-center text-gray-600 py-10">
+        <div className="text-center text-muted-foreground py-10">
           No issues found
         </div>
       ) : (
