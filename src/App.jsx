@@ -33,7 +33,7 @@ function App() {
   }
 
   return (
-    <div className="w-full px-4 py-8">
+    <div className="w-full px-4 py-8 container mx-auto">
       <div className="fixed top-4 right-4 flex items-center gap-2">
         {isAuthenticated && (
           <Button

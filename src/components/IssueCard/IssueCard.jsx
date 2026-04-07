@@ -101,7 +101,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
     const row = (
       <div
         className={cn(
-          'flex gap-2.5 px-2.5 py-2 rounded-md border-b border-border/50 last:border-0 transition-colors group',
+          'flex gap-2.5 px-2.5 py-2 rounded-none border-b border-border/50 last:border-0 transition-colors group',
           hasBody ? 'cursor-pointer hover:bg-muted/50' : 'hover:bg-muted/30'
         )}
       >

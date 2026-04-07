@@ -8,6 +8,7 @@ import { Badge } from '../ui/badge'
 import { ScrollArea } from '../ui/scroll-area'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../ui/select'
 import { Building2, GitBranch, User, RefreshCw, X, Info, LayoutGrid, List } from 'lucide-react'
+import { Skeleton } from '../ui/skeleton'
 
 function SegmentedControl({ options, value, onChange, ariaLabel }) {
   return (
@@ -186,8 +187,8 @@ function IssueList({ onAuthFailure }) {
 
   const controls = (
     <div className="flex flex-col items-center mb-5 px-4 space-y-3">
-      {/* Scope + Refresh */}
-      <div className="flex flex-wrap justify-center items-center gap-3">
+      {/* Scope */}
+      <div className="flex justify-center">
         <SegmentedControl
           ariaLabel="Assignee scope"
           value={scope}
@@ -198,34 +199,6 @@ function IssueList({ onAuthFailure }) {
             { value: 'all', label: 'All' },
           ]}
         />
-        <Button
-          onClick={() => loadIssues({ forceFresh: true })}
-          disabled={!canRefresh || isLoading}
-          variant="outline"
-          className="h-8 px-3 text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
-          title={canRefresh ? 'Refresh' : 'Please wait before refreshing again'}
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          {isLoading ? 'Loading…' : 'Refresh'}
-        </Button>
-
-        {/* View mode toggle */}
-        <div className="inline-flex rounded-full border border-border bg-muted overflow-hidden">
-          <button
-            onClick={() => { setViewMode('grid'); updatePreference({ viewMode: 'grid' }) }}
-            className={`p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            title="Grid view"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => { setViewMode('list'); updatePreference({ viewMode: 'list' }) }}
-            className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            title="List view"
-          >
-            <List className="w-3.5 h-3.5" />
-          </button>
-        </div>
       </div>
 
       {/* Filter bar */}
@@ -276,11 +249,35 @@ function IssueList({ onAuthFailure }) {
   )
 
   if (isLoading) {
+    const skeletonRows = Array.from({ length: 8 })
     return (
       <div>
         {controls}
-        <div className="flex justify-center items-center min-h-[200px]">
-          <div className="text-muted-foreground">Loading issues…</div>
+        <div className="flex items-center justify-end gap-2 px-4 mb-3">
+          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-8 w-16 rounded-md" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 px-4">
+          {[0, 1].map(col => (
+            <div key={col} className="flex flex-col min-h-0">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                <Skeleton className="w-2.5 h-2.5 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-8 rounded-full" />
+              </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-1 space-y-1">
+                {skeletonRows.map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                    <Skeleton className="w-2 h-2 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -297,9 +294,41 @@ function IssueList({ onAuthFailure }) {
     )
   }
 
+  const listControls = (
+    <div className="flex items-center justify-end gap-2 px-4 mb-3">
+      <Button
+        onClick={() => loadIssues({ forceFresh: true })}
+        disabled={!canRefresh || isLoading}
+        variant="outline"
+        className="h-8 px-3 text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
+        title={canRefresh ? 'Refresh' : 'Please wait before refreshing again'}
+      >
+        <RefreshCw className="w-3.5 h-3.5" />
+        {isLoading ? 'Loading…' : 'Refresh'}
+      </Button>
+      <div className="inline-flex rounded-md border border-border bg-muted overflow-hidden">
+        <button
+          onClick={() => { setViewMode('grid'); updatePreference({ viewMode: 'grid' }) }}
+          className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          title="Grid view"
+        >
+          <LayoutGrid className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => { setViewMode('list'); updatePreference({ viewMode: 'list' }) }}
+          className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          title="List view"
+        >
+          <List className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div>
       {controls}
+      {listControls}
       <div className="grid grid-cols-2 gap-4 px-4">
         {/* Open Issues */}
         <div className="flex flex-col min-h-0">
