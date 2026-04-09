@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { fetchAllIssues } from '../../services/dataManager'
+import { fetchAllIssues, fetchMoreIssuesPage, mergeIssuesIntoOrgData } from '../../services/dataManager'
+import { getCredentials } from '../../utils/localStorage'
 import { shouldRefreshData, cacheKey } from '../../utils/cache'
 import { getPreferences, updatePreference } from '../../utils/preferences'
 import IssueCard from '../IssueCard/IssueCard'
@@ -77,6 +78,7 @@ function IssueList({ onAuthFailure }) {
   const initialPrefs = getPreferences()
   const [scope, setScope] = useState(initialPrefs.scope)
   const [orgData, setOrgData] = useState({})
+  const [baseOrgData, setBaseOrgData] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
@@ -86,17 +88,32 @@ function IssueList({ onAuthFailure }) {
   const [filterAuthor, setFilterAuthor] = useState('')
   const [viewMode, setViewMode] = useState(initialPrefs.viewMode)
 
-  const PAGE_SIZE = 20
-  const [openVisible, setOpenVisible] = useState(PAGE_SIZE)
-  const [closedVisible, setClosedVisible] = useState(PAGE_SIZE)
+  const PAGE_SIZE = 50
+  const [openPageInfo, setOpenPageInfo] = useState({ hasNextPage: false, endCursor: null })
+  const [closedPageInfo, setClosedPageInfo] = useState({ hasNextPage: false, endCursor: null })
+  const [loadingMoreOpen, setLoadingMoreOpen] = useState(false)
+  const [loadingMoreClosed, setLoadingMoreClosed] = useState(false)
 
   const loadIssues = useCallback(async (opts = {}) => {
-    const { forceFresh = false, scope: s = scope } = opts
+    const {
+      forceFresh = false,
+      scope: s = scope,
+      filters = { org: filterOrg, repo: filterRepo, author: filterAuthor },
+    } = opts
     try {
       setIsLoading(true)
       setError(null)
-      const data = await fetchAllIssues({ scope: s, forceFresh })
-      setOrgData(data)
+      const data = await fetchAllIssues({ scope: s, forceFresh, filters })
+      setOrgData(data.orgGroups)
+      const noFilters = !filters.org && !filters.repo && !filters.author
+      if (noFilters) {
+        setBaseOrgData(data.orgGroups)
+      } else {
+        // Ensure we have a base for dropdown options on first filtered fetch.
+        setBaseOrgData(prev => (Object.keys(prev).length ? prev : data.orgGroups))
+      }
+      setOpenPageInfo(data.openPageInfo || { hasNextPage: false, endCursor: null })
+      setClosedPageInfo(data.closedPageInfo || { hasNextPage: false, endCursor: null })
       setLastRefreshTime(new Date().getTime())
     } catch (err) {
       setError(err.message)
@@ -106,12 +123,12 @@ function IssueList({ onAuthFailure }) {
     } finally {
       setIsLoading(false)
     }
-  }, [scope, onAuthFailure])
+  }, [scope, filterOrg, filterRepo, filterAuthor, onAuthFailure])
 
   useEffect(() => {
-    loadIssues({ scope })
+    loadIssues({ scope, filters: { org: filterOrg, repo: filterRepo, author: filterAuthor } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope])
+  }, [scope, filterOrg, filterRepo, filterAuthor])
 
   const handleScopeChange = (val) => {
     updatePreference({ scope: val })
@@ -121,34 +138,43 @@ function IssueList({ onAuthFailure }) {
     setFilterAuthor('')
   }
 
-  const { allOpen, allClosed, orgOptions, repoOptions, authorOptions } = useMemo(() => {
+  const { allOpen, allClosed } = useMemo(() => {
     const allOpen = []
     const allClosed = []
+    for (const [org, orgRepos] of Object.entries(orgData)) {
+      for (const [, repo] of Object.entries(orgRepos)) {
+        for (const issue of repo.open) {
+          allOpen.push({ ...issue, _repoName: repo.name, _repoKey: repo.nameWithOwner, _org: org })
+        }
+        for (const issue of repo.closed) {
+          allClosed.push({ ...issue, _repoName: repo.name, _repoKey: repo.nameWithOwner, _org: org })
+        }
+      }
+    }
+    return { allOpen, allClosed }
+  }, [orgData])
+
+  const { orgOptions, repoOptions, authorOptions } = useMemo(() => {
     const orgSet = new Set()
     const repoMap = new Map()
     const authorMap = new Map()
-
-    for (const [org, orgRepos] of Object.entries(orgData)) {
+    for (const [org, orgRepos] of Object.entries(baseOrgData)) {
       orgSet.add(org)
       for (const [, repo] of Object.entries(orgRepos)) {
         repoMap.set(repo.nameWithOwner, { value: repo.nameWithOwner, label: repo.name, org })
         for (const issue of repo.open) {
-          allOpen.push({ ...issue, _repoName: repo.name, _repoKey: repo.nameWithOwner, _org: org })
           if (issue.author?.login) authorMap.set(issue.author.login, true)
         }
         for (const issue of repo.closed) {
-          allClosed.push({ ...issue, _repoName: repo.name, _repoKey: repo.nameWithOwner, _org: org })
           if (issue.author?.login) authorMap.set(issue.author.login, true)
         }
       }
     }
-
     const orgOptions = Array.from(orgSet).sort().map(o => ({ value: o, label: o }))
     const repoOptions = Array.from(repoMap.values()).sort((a, b) => a.label.localeCompare(b.label))
     const authorOptions = Array.from(authorMap.keys()).sort().map(a => ({ value: a, label: a }))
-
-    return { allOpen, allClosed, orgOptions, repoOptions, authorOptions }
-  }, [orgData])
+    return { orgOptions, repoOptions, authorOptions }
+  }, [baseOrgData])
 
   const filteredRepoOptions = useMemo(() => {
     if (!filterOrg) return repoOptions
@@ -177,13 +203,32 @@ function IssueList({ onAuthFailure }) {
     [allClosed, filterOrg, filterRepo, filterAuthor]
   )
 
-  useEffect(() => {
-    setOpenVisible(PAGE_SIZE)
-    setClosedVisible(PAGE_SIZE)
-  }, [filterOrg, filterRepo, filterAuthor, scope])
-
-  const visibleOpen = useMemo(() => filteredOpen.slice(0, openVisible), [filteredOpen, openVisible])
-  const visibleClosed = useMemo(() => filteredClosed.slice(0, closedVisible), [filteredClosed, closedVisible])
+  const handleLoadMore = useCallback(async (state) => {
+    const pageInfo = state === 'open' ? openPageInfo : closedPageInfo
+    if (!pageInfo.hasNextPage) return
+    const setLoading = state === 'open' ? setLoadingMoreOpen : setLoadingMoreClosed
+    const setPageInfo = state === 'open' ? setOpenPageInfo : setClosedPageInfo
+    try {
+      setLoading(true)
+      const { nodes, pageInfo: nextPageInfo } = await fetchMoreIssuesPage({
+        scope,
+        state,
+        after: pageInfo.endCursor,
+        first: PAGE_SIZE,
+        filters: { org: filterOrg, repo: filterRepo, author: filterAuthor },
+      })
+      const creds = getCredentials()
+      setOrgData(prev => mergeIssuesIntoOrgData(prev, nodes, creds?.username))
+      setPageInfo(nextPageInfo || { hasNextPage: false, endCursor: null })
+    } catch (err) {
+      setError(err.message)
+      if (err.message === 'Authentication failed' || err.message === 'No credentials found') {
+        onAuthFailure()
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [scope, openPageInfo, closedPageInfo, filterOrg, filterRepo, filterAuthor, onAuthFailure])
 
   const hasFilters = filterOrg || filterRepo || filterAuthor
   const canRefresh = shouldRefreshData(cacheKey(scope, 'both'))
@@ -370,30 +415,31 @@ function IssueList({ onAuthFailure }) {
               <span className="font-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground">No. 01</span>
               <h3 className="font-display text-2xl font-normal italic text-foreground">Open</h3>
             </div>
-            <span className="text-xs text-muted-foreground tabular-nums">{filteredOpen.length} items</span>
+            <span className="text-xs text-muted-foreground tabular-nums">{filteredOpen.length} loaded{openPageInfo.hasNextPage ? '+' : ''}</span>
           </div>
           <ScrollArea className="h-[calc(100vh-380px)] rounded-xl border border-border bg-muted/30">
             <div className={viewMode === 'list' ? 'p-1' : 'grid grid-cols-2 gap-2 p-2'}>
               {filteredOpen.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-12 text-center italic">Nothing open. A rare and quiet day.</p>
               ) : (
-                visibleOpen.map(issue => (
+                filteredOpen.map(issue => (
                   <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
                 ))
               )}
             </div>
-            {filteredOpen.length > openVisible && (
+            {openPageInfo.hasNextPage && (
               <div className="flex flex-col items-center gap-1.5 py-5 border-t border-border/60 mt-1">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setOpenVisible(v => v + PAGE_SIZE)}
+                  onClick={() => handleLoadMore('open')}
+                  disabled={loadingMoreOpen}
                   className="h-8 px-4 rounded-full text-xs uppercase tracking-[0.16em] font-medium"
                 >
-                  Load more
+                  {loadingMoreOpen ? 'Loading…' : 'Load more'}
                 </Button>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground tabular-nums">
-                  {openVisible} of {filteredOpen.length}
+                  {allOpen.length} loaded
                 </span>
               </div>
             )}
@@ -407,30 +453,31 @@ function IssueList({ onAuthFailure }) {
               <span className="font-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground">No. 02</span>
               <h3 className="font-display text-2xl font-normal italic text-muted-foreground">Closed</h3>
             </div>
-            <span className="text-xs text-muted-foreground tabular-nums">{filteredClosed.length} items</span>
+            <span className="text-xs text-muted-foreground tabular-nums">{filteredClosed.length} loaded{closedPageInfo.hasNextPage ? '+' : ''}</span>
           </div>
           <ScrollArea className="h-[calc(100vh-380px)] rounded-xl border border-border bg-muted/30">
             <div className={viewMode === 'list' ? 'p-1' : 'grid grid-cols-2 gap-2 p-2'}>
               {filteredClosed.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-12 text-center italic">No closed issues yet.</p>
               ) : (
-                visibleClosed.map(issue => (
+                filteredClosed.map(issue => (
                   <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
                 ))
               )}
             </div>
-            {filteredClosed.length > closedVisible && (
+            {closedPageInfo.hasNextPage && (
               <div className="flex flex-col items-center gap-1.5 py-5 border-t border-border/60 mt-1">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setClosedVisible(v => v + PAGE_SIZE)}
+                  onClick={() => handleLoadMore('closed')}
+                  disabled={loadingMoreClosed}
                   className="h-8 px-4 rounded-full text-xs uppercase tracking-[0.16em] font-medium"
                 >
-                  Load more
+                  {loadingMoreClosed ? 'Loading…' : 'Load more'}
                 </Button>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground tabular-nums">
-                  {closedVisible} of {filteredClosed.length}
+                  {allClosed.length} loaded
                 </span>
               </div>
             )}

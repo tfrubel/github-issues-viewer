@@ -70,35 +70,51 @@ const fetchViewerRepos = async (client, limit = 30) => {
   return response.data.data.viewer.repositories.nodes.map(r => r.nameWithOwner)
 }
 
-export const fetchUserIssues = async (pat, username, { state = 'open', scope = 'me' } = {}) => {
+export const fetchUserIssues = async (pat, username, { state = 'open', scope = 'me', first = 50, after = null, filters = {} } = {}) => {
   try {
     const client = createGitHubClient(pat)
     const stateQ = state === 'closed' ? 'is:closed' : 'is:open'
+    const { org: filterOrg, repo: filterRepo, author: filterAuthor } = filters
 
     // Scope mapping:
     //   'me'       => assignee:<user>     (Assigned to me)
     //   'relevant' => involves:<user>     (author, assignee, mentioned, commenter)
     //   'all'      => every issue in the repos the viewer has access to
     let searchQuery
-    let pageSize
     if (scope === 'all') {
-      const repos = await fetchViewerRepos(client, 30)
-      if (repos.length === 0) {
-        return { search: { nodes: [] } }
+      // If filterRepo or filterOrg is set, narrow directly instead of expanding viewer repos.
+      if (filterRepo) {
+        searchQuery = `is:issue ${stateQ} repo:${filterRepo} -archived:true`
+      } else if (filterOrg) {
+        searchQuery = `is:issue ${stateQ} user:${filterOrg} -archived:true`
+      } else {
+        const repos = await fetchViewerRepos(client, 30)
+        if (repos.length === 0) {
+          return { search: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } }
+        }
+        const repoQ = repos.map(r => `repo:${r}`).join(' ')
+        searchQuery = `is:issue ${stateQ} ${repoQ} -archived:true`
       }
-      const repoQ = repos.map(r => `repo:${r}`).join(' ')
-      searchQuery = `is:issue ${stateQ} ${repoQ} -archived:true`
-      pageSize = 50
     } else {
       const scopeQ = scope === 'relevant' ? `involves:${username}` : `assignee:${username}`
-      searchQuery = `is:issue ${stateQ} ${scopeQ} -archived:true`
-      pageSize = 100
+      const parts = [`is:issue`, stateQ, scopeQ]
+      if (filterRepo) parts.push(`repo:${filterRepo}`)
+      else if (filterOrg) parts.push(`user:${filterOrg}`)
+      parts.push('-archived:true')
+      searchQuery = parts.join(' ')
+    }
+    if (filterAuthor) {
+      searchQuery += ` author:${filterAuthor}`
     }
     searchQuery = searchQuery.replace(/\s+/g, ' ').trim()
 
     const query = `
-      query Search($q: String!, $first: Int!) {
-        search(query: $q, type: ISSUE, first: $first) {
+      query Search($q: String!, $first: Int!, $after: String) {
+        search(query: $q, type: ISSUE, first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           nodes {
             ... on Issue {
               id
@@ -144,7 +160,7 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
       }
     `
 
-    const response = await client.post('', { query, variables: { q: searchQuery, first: pageSize } })
+    const response = await client.post('', { query, variables: { q: searchQuery, first, after } })
 
     if (response.data.errors) {
       throw new Error(response.data.errors[0].message)
