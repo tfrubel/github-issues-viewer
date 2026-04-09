@@ -4,6 +4,7 @@ import { clearCache } from './utils/cache'
 import LoginForm from './components/LoginForm/LoginForm'
 import IssueList from './components/IssueList/IssueList'
 import { Button } from './components/ui/button'
+import ThemeSwitcher from './components/ThemeSwitcher/ThemeSwitcher'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -66,6 +67,7 @@ function App() {
                 Logout
               </Button>
             )}
+            <ThemeSwitcher />
             <Button
               variant="outline"
               size="icon"

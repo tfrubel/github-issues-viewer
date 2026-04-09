@@ -5,8 +5,19 @@ import { Badge } from '../ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog'
 import { cn } from '@/lib/utils'
 
-function labelTextColor(hex) {
-  return parseInt(hex, 16) > 0xffffff / 2 ? '#000' : '#fff'
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function labelStyle(hex) {
+  return {
+    backgroundColor: hexToRgba(hex, 0.12),
+    color: hexToRgba(hex, 0.85),
+    border: `1px solid ${hexToRgba(hex, 0.22)}`,
+  }
 }
 
 const markdownProseClasses = `prose prose-sm max-w-none
@@ -164,7 +175,7 @@ function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body
               <span
                 key={label.id}
                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium"
-                style={{ backgroundColor: `#${label.color}`, color: labelTextColor(label.color) }}
+                style={labelStyle(label.color)}
               >
                 {label.name}
               </span>
@@ -267,7 +278,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
               <span
                 key={label.id}
                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium shrink-0"
-                style={{ backgroundColor: `#${label.color}`, color: labelTextColor(label.color) }}
+                style={labelStyle(label.color)}
                 title={label.name}
               >
                 {label.name}
@@ -374,7 +385,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
               <span
                 key={label.id}
                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[13px] font-medium truncate max-w-[120px]"
-                style={{ backgroundColor: `#${label.color}`, color: labelTextColor(label.color) }}
+                style={labelStyle(label.color)}
                 title={label.name}
               >
                 {label.name}
