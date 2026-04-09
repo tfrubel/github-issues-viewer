@@ -29,6 +29,54 @@ const THEMES = Object.fromEntries(
 const DEFAULT_THEME = 'claude'
 const STORAGE_KEY = 'app-theme-name'
 const STYLE_TAG_ID = 'dynamic-theme'
+const FONT_LINK_ID = 'dynamic-theme-fonts'
+
+// Generic CSS keywords that should never be requested from Google Fonts.
+const GENERIC_FONTS = new Set([
+  'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy', 'system-ui',
+  'ui-sans-serif', 'ui-serif', 'ui-monospace', 'ui-rounded',
+  '-apple-system', 'blinkmacsystemfont', 'inherit', 'initial', 'unset',
+])
+
+// Pull every font family referenced by --font-* declarations.
+function extractFontFamilies(css) {
+  const families = new Set()
+  const re = /--font-[\w-]+\s*:\s*([^;}]+)[;}]/g
+  let m
+  while ((m = re.exec(css)) !== null) {
+    m[1].split(',').forEach(part => {
+      const name = part.trim().replace(/^["']|["']$/g, '')
+      if (!name || name.startsWith('var(')) return
+      if (GENERIC_FONTS.has(name.toLowerCase())) return
+      families.add(name)
+    })
+  }
+  return [...families]
+}
+
+function buildGoogleFontsHref(families) {
+  if (!families.length) return ''
+  const params = families
+    .map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@300;400;500;600;700`)
+    .join('&')
+  return `https://fonts.googleapis.com/css2?${params}&display=swap`
+}
+
+function applyFonts(css) {
+  const href = buildGoogleFontsHref(extractFontFamilies(css))
+  let link = document.getElementById(FONT_LINK_ID)
+  if (!href) {
+    if (link) link.remove()
+    return
+  }
+  if (!link) {
+    link = document.createElement('link')
+    link.id = FONT_LINK_ID
+    link.rel = 'stylesheet'
+    document.head.appendChild(link)
+  }
+  if (link.href !== href) link.href = href
+}
 
 // Strip @theme / @layer blocks — only :root and .dark variable blocks
 // can be safely injected at runtime.
@@ -50,6 +98,7 @@ function applyTheme(id) {
     document.head.appendChild(tag)
   }
   tag.textContent = extractVariableBlocks(theme.css)
+  applyFonts(theme.css)
 }
 
 export function initTheme() {
