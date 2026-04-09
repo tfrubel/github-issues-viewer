@@ -130,7 +130,7 @@ export const fetchMoreIssuesPage = async ({ scope = 'me', state = 'open', after 
 // Fetches both open and closed issues in parallel, grouped by org → repo.
 // Returns: { [org]: { [nameWithOwner]: { id, name, nameWithOwner, viewerLogin, open: [], closed: [] } } }
 export const fetchAllIssues = async ({ scope = 'me', forceFresh = false, filters = {} } = {}) => {
-  const hasFilters = !!(filters.org || filters.repo || filters.author)
+  const hasFilters = !!(filters.orgs?.length || filters.repos?.length || filters.authors?.length)
   const key = cacheKey(scope, 'both')
   // Cache only the unfiltered, base view. Filtered fetches always go to the network.
   const shouldRefresh = forceFresh || shouldRefreshData(key)

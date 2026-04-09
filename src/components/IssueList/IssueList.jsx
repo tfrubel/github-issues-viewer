@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchAllIssues, fetchMoreIssuesPage, mergeIssuesIntoOrgData } from '../../services/dataManager'
 import { getCredentials } from '../../utils/localStorage'
 import { shouldRefreshData, cacheKey } from '../../utils/cache'
@@ -6,8 +6,9 @@ import { getPreferences, updatePreference } from '../../utils/preferences'
 import IssueCard from '../IssueCard/IssueCard'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../ui/select'
-import { Building2, GitBranch, User, RefreshCw, X, Info, LayoutGrid, List } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover'
+import { Checkbox } from '../ui/checkbox'
+import { Building2, GitBranch, User, RefreshCw, X, Info, LayoutGrid, List, ChevronDown } from 'lucide-react'
 import { Skeleton } from '../ui/skeleton'
 
 function SegmentedControl({ options, value, onChange, ariaLabel }) {
@@ -39,32 +40,72 @@ function SegmentedControl({ options, value, onChange, ariaLabel }) {
   )
 }
 
-const ALL_VALUE = '__all__'
+function MultiFilterDropdown({ icon: Icon, label, values, onChange, options }) {
+  const [open, setOpen] = useState(false)
+  const hasValues = values.length > 0
 
-function FilterDropdown({ icon: Icon, label, value, onChange, options }) {
-  const hasValue = value !== ''
-  const selectValue = value === '' ? ALL_VALUE : value
-  const handleChange = (val) => onChange(val === ALL_VALUE ? '' : val)
+  const toggleValue = (val) => {
+    if (values.includes(val)) {
+      onChange(values.filter(v => v !== val))
+    } else {
+      onChange([...values, val])
+    }
+  }
+
+  const displayText = useMemo(() => {
+    if (values.length === 0) return null
+    if (values.length === 1) return options.find(o => o.value === values[0])?.label ?? values[0]
+    return `${values.length} selected`
+  }, [values, options])
 
   return (
-    <Select value={selectValue} onValueChange={handleChange}>
-      <SelectTrigger
-        className={`h-8 min-w-[130px] max-w-[200px] rounded-full text-sm pl-2.5 pr-2 gap-1.5 ${
-          hasValue ? 'border-primary/60 bg-primary/5 text-foreground' : 'text-muted-foreground'
-        }`}
-      >
-        <Icon className="w-3.5 h-3.5 shrink-0" />
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL_VALUE}>{label === 'Repository' ? 'All Repositories' : `All ${label}s`}</SelectItem>
-        {options.map(opt => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-sm transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            hasValues
+              ? 'border-primary/60 bg-primary/5 text-foreground'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted'
+          }`}
+          style={{ minWidth: '130px', maxWidth: '200px' }}
+        >
+          <Icon className="w-3.5 h-3.5 shrink-0" />
+          <span className="flex-1 text-left truncate">{displayText ?? label}</span>
+          <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1 max-h-72 overflow-y-auto">
+        {options.length === 0 ? (
+          <p className="px-2 py-3 text-xs text-muted-foreground text-center">No options</p>
+        ) : (
+          options.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => toggleValue(opt.value)}
+              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-accent cursor-pointer transition-colors text-left"
+            >
+              <Checkbox
+                checked={values.includes(opt.value)}
+                onCheckedChange={() => toggleValue(opt.value)}
+                onClick={e => e.stopPropagation()}
+              />
+              <span className="truncate">{opt.label}</span>
+            </button>
+          ))
+        )}
+        {hasValues && (
+          <div className="mt-1 border-t border-border pt-1">
+            <button
+              onClick={() => onChange([])}
+              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+              Clear
+            </button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -83,10 +124,42 @@ function IssueList({ onAuthFailure }) {
   const [error, setError] = useState(null)
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
-  const [filterOrg, setFilterOrg] = useState('')
-  const [filterRepo, setFilterRepo] = useState('')
-  const [filterAuthor, setFilterAuthor] = useState('')
+  const [filterOrgs, setFilterOrgs] = useState(initialPrefs.filters.orgs)
+  const [filterRepos, setFilterRepos] = useState(initialPrefs.filters.repos)
+  const [filterAuthors, setFilterAuthors] = useState(initialPrefs.filters.authors)
   const [viewMode, setViewMode] = useState(initialPrefs.viewMode)
+
+  // Persist filter changes to localStorage
+  const persistFilters = useCallback((orgs, repos, authors) => {
+    updatePreference({ filters: { orgs, repos, authors } })
+  }, [])
+
+  const handleFilterOrgsChange = useCallback((val) => {
+    setFilterOrgs(val)
+    // When orgs change, drop repos that no longer belong to selected orgs
+    setFilterRepos(prev => {
+      if (val.length === 0) {
+        persistFilters(val, prev, filterAuthors)
+        return prev
+      }
+      const filtered = prev.filter(r => {
+        const org = r.split('/')[0]
+        return val.includes(org)
+      })
+      persistFilters(val, filtered, filterAuthors)
+      return filtered
+    })
+  }, [filterAuthors, persistFilters])
+
+  const handleFilterReposChange = useCallback((val) => {
+    setFilterRepos(val)
+    persistFilters(filterOrgs, val, filterAuthors)
+  }, [filterOrgs, filterAuthors, persistFilters])
+
+  const handleFilterAuthorsChange = useCallback((val) => {
+    setFilterAuthors(val)
+    persistFilters(filterOrgs, filterRepos, val)
+  }, [filterOrgs, filterRepos, persistFilters])
 
   const PAGE_SIZE = 50
   const [openPageInfo, setOpenPageInfo] = useState({ hasNextPage: false, endCursor: null })
@@ -94,22 +167,27 @@ function IssueList({ onAuthFailure }) {
   const [loadingMoreOpen, setLoadingMoreOpen] = useState(false)
   const [loadingMoreClosed, setLoadingMoreClosed] = useState(false)
 
+  // Use a ref to always hold latest filter values without stale closure issues in loadIssues
+  const filtersRef = useRef({ orgs: filterOrgs, repos: filterRepos, authors: filterAuthors })
+  useEffect(() => {
+    filtersRef.current = { orgs: filterOrgs, repos: filterRepos, authors: filterAuthors }
+  }, [filterOrgs, filterRepos, filterAuthors])
+
   const loadIssues = useCallback(async (opts = {}) => {
     const {
       forceFresh = false,
       scope: s = scope,
-      filters = { org: filterOrg, repo: filterRepo, author: filterAuthor },
+      filters = filtersRef.current,
     } = opts
     try {
       setIsLoading(true)
       setError(null)
       const data = await fetchAllIssues({ scope: s, forceFresh, filters })
       setOrgData(data.orgGroups)
-      const noFilters = !filters.org && !filters.repo && !filters.author
+      const noFilters = !filters.orgs?.length && !filters.repos?.length && !filters.authors?.length
       if (noFilters) {
         setBaseOrgData(data.orgGroups)
       } else {
-        // Ensure we have a base for dropdown options on first filtered fetch.
         setBaseOrgData(prev => (Object.keys(prev).length ? prev : data.orgGroups))
       }
       setOpenPageInfo(data.openPageInfo || { hasNextPage: false, endCursor: null })
@@ -123,19 +201,21 @@ function IssueList({ onAuthFailure }) {
     } finally {
       setIsLoading(false)
     }
-  }, [scope, filterOrg, filterRepo, filterAuthor, onAuthFailure])
+  }, [scope, onAuthFailure])
 
   useEffect(() => {
-    loadIssues({ scope, filters: { org: filterOrg, repo: filterRepo, author: filterAuthor } })
+    loadIssues({ scope, filters: { orgs: filterOrgs, repos: filterRepos, authors: filterAuthors } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, filterOrg, filterRepo, filterAuthor])
+  }, [scope, filterOrgs, filterRepos, filterAuthors])
 
   const handleScopeChange = (val) => {
     updatePreference({ scope: val })
     setScope(val)
-    setFilterOrg('')
-    setFilterRepo('')
-    setFilterAuthor('')
+    const clearedFilters = { orgs: [], repos: [], authors: [] }
+    setFilterOrgs([])
+    setFilterRepos([])
+    setFilterAuthors([])
+    updatePreference({ filters: clearedFilters })
   }
 
   const { allOpen, allClosed } = useMemo(() => {
@@ -177,30 +257,30 @@ function IssueList({ onAuthFailure }) {
   }, [baseOrgData])
 
   const filteredRepoOptions = useMemo(() => {
-    if (!filterOrg) return repoOptions
-    return repoOptions.filter(r => r.org === filterOrg)
-  }, [repoOptions, filterOrg])
+    if (filterOrgs.length === 0) return repoOptions
+    return repoOptions.filter(r => filterOrgs.includes(r.org))
+  }, [repoOptions, filterOrgs])
 
   const filteredOpen = useMemo(() =>
     allOpen.filter(issue => {
-      if (filterOrg && issue._org !== filterOrg) return false
-      if (filterRepo && issue._repoKey !== filterRepo) return false
-      if (filterAuthor && issue.author?.login !== filterAuthor) return false
+      if (filterOrgs.length > 0 && !filterOrgs.includes(issue._org)) return false
+      if (filterRepos.length > 0 && !filterRepos.includes(issue._repoKey)) return false
+      if (filterAuthors.length > 0 && !filterAuthors.includes(issue.author?.login)) return false
       return true
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allOpen, filterOrg, filterRepo, filterAuthor]
+    [allOpen, filterOrgs, filterRepos, filterAuthors]
   )
 
   const filteredClosed = useMemo(() =>
     allClosed.filter(issue => {
-      if (filterOrg && issue._org !== filterOrg) return false
-      if (filterRepo && issue._repoKey !== filterRepo) return false
-      if (filterAuthor && issue.author?.login !== filterAuthor) return false
+      if (filterOrgs.length > 0 && !filterOrgs.includes(issue._org)) return false
+      if (filterRepos.length > 0 && !filterRepos.includes(issue._repoKey)) return false
+      if (filterAuthors.length > 0 && !filterAuthors.includes(issue.author?.login)) return false
       return true
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allClosed, filterOrg, filterRepo, filterAuthor]
+    [allClosed, filterOrgs, filterRepos, filterAuthors]
   )
 
   const handleLoadMore = useCallback(async (state) => {
@@ -215,7 +295,7 @@ function IssueList({ onAuthFailure }) {
         state,
         after: pageInfo.endCursor,
         first: PAGE_SIZE,
-        filters: { org: filterOrg, repo: filterRepo, author: filterAuthor },
+        filters: filtersRef.current,
       })
       const creds = getCredentials()
       setOrgData(prev => mergeIssuesIntoOrgData(prev, nodes, creds?.username))
@@ -228,18 +308,17 @@ function IssueList({ onAuthFailure }) {
     } finally {
       setLoading(false)
     }
-  }, [scope, openPageInfo, closedPageInfo, filterOrg, filterRepo, filterAuthor, onAuthFailure])
+  }, [scope, openPageInfo, closedPageInfo, onAuthFailure])
 
-  const hasFilters = filterOrg || filterRepo || filterAuthor
+  const hasFilters = filterOrgs.length > 0 || filterRepos.length > 0 || filterAuthors.length > 0
   const canRefresh = shouldRefreshData(cacheKey(scope, 'both'))
 
-  const handleOrgChange = (val) => {
-    setFilterOrg(val)
-    if (val && filterRepo) {
-      const stillValid = repoOptions.find(r => r.value === filterRepo && r.org === val)
-      if (!stillValid) setFilterRepo('')
-    }
-  }
+  const clearAllFilters = useCallback(() => {
+    setFilterOrgs([])
+    setFilterRepos([])
+    setFilterAuthors([])
+    updatePreference({ filters: { orgs: [], repos: [], authors: [] } })
+  }, [])
 
   const totalRepos = repoOptions.length
   const totalOrgs = orgOptions.length
@@ -280,32 +359,32 @@ function IssueList({ onAuthFailure }) {
 
       {/* Filter bar */}
       <div className="flex flex-wrap justify-center items-center gap-2">
-        <FilterDropdown
+        <MultiFilterDropdown
           icon={Building2}
           label="Organization"
-          value={filterOrg}
-          onChange={handleOrgChange}
+          values={filterOrgs}
+          onChange={handleFilterOrgsChange}
           options={orgOptions}
         />
-        <FilterDropdown
+        <MultiFilterDropdown
           icon={GitBranch}
           label="Repository"
-          value={filterRepo}
-          onChange={setFilterRepo}
+          values={filterRepos}
+          onChange={handleFilterReposChange}
           options={filteredRepoOptions}
         />
-        <FilterDropdown
+        <MultiFilterDropdown
           icon={User}
           label="Creator"
-          value={filterAuthor}
-          onChange={setFilterAuthor}
+          values={filterAuthors}
+          onChange={handleFilterAuthorsChange}
           options={authorOptions}
         />
         {hasFilters && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setFilterOrg(''); setFilterRepo(''); setFilterAuthor('') }}
+            onClick={clearAllFilters}
             className="h-8 px-2.5 rounded-full text-xs text-muted-foreground hover:text-foreground gap-1"
           >
             <X className="w-3 h-3" />

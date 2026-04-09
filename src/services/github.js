@@ -74,7 +74,9 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
   try {
     const client = createGitHubClient(pat)
     const stateQ = state === 'closed' ? 'is:closed' : 'is:open'
-    const { org: filterOrg, repo: filterRepo, author: filterAuthor } = filters
+    const filterOrgs = filters.orgs ?? []
+    const filterRepos = filters.repos ?? []
+    const filterAuthors = filters.authors ?? []
 
     // Scope mapping:
     //   'me'       => assignee:<user>     (Assigned to me)
@@ -82,11 +84,13 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
     //   'all'      => every issue in the repos the viewer has access to
     let searchQuery
     if (scope === 'all') {
-      // If filterRepo or filterOrg is set, narrow directly instead of expanding viewer repos.
-      if (filterRepo) {
-        searchQuery = `is:issue ${stateQ} repo:${filterRepo} -archived:true`
-      } else if (filterOrg) {
-        searchQuery = `is:issue ${stateQ} user:${filterOrg} -archived:true`
+      // If repos or orgs are selected, narrow directly instead of expanding viewer repos.
+      if (filterRepos.length > 0) {
+        const repoQ = filterRepos.map(r => `repo:${r}`).join(' ')
+        searchQuery = `is:issue ${stateQ} ${repoQ} -archived:true`
+      } else if (filterOrgs.length > 0) {
+        const orgQ = filterOrgs.map(o => `user:${o}`).join(' ')
+        searchQuery = `is:issue ${stateQ} ${orgQ} -archived:true`
       } else {
         const repos = await fetchViewerRepos(client, 30)
         if (repos.length === 0) {
@@ -98,13 +102,16 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
     } else {
       const scopeQ = scope === 'relevant' ? `involves:${username}` : `assignee:${username}`
       const parts = [`is:issue`, stateQ, scopeQ]
-      if (filterRepo) parts.push(`repo:${filterRepo}`)
-      else if (filterOrg) parts.push(`user:${filterOrg}`)
+      if (filterRepos.length > 0) {
+        filterRepos.forEach(r => parts.push(`repo:${r}`))
+      } else if (filterOrgs.length > 0) {
+        filterOrgs.forEach(o => parts.push(`user:${o}`))
+      }
       parts.push('-archived:true')
       searchQuery = parts.join(' ')
     }
-    if (filterAuthor) {
-      searchQuery += ` author:${filterAuthor}`
+    if (filterAuthors.length > 0) {
+      filterAuthors.forEach(a => { searchQuery += ` author:${a}` })
     }
     searchQuery = searchQuery.replace(/\s+/g, ' ').trim()
 

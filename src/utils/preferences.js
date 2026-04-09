@@ -5,13 +5,23 @@ const defaults = {
   state: 'open',      // 'open' | 'closed'
   collapsed: {},      // { [repoNameWithOwner]: true }
   viewMode: 'list',   // 'grid' | 'list'
+  filters: {
+    orgs: [],         // string[]
+    repos: [],        // string[]
+    authors: [],      // string[]
+  },
 }
 
 export const getPreferences = () => {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return { ...defaults }
-    return { ...defaults, ...JSON.parse(raw) }
+    const parsed = JSON.parse(raw)
+    return {
+      ...defaults,
+      ...parsed,
+      filters: { ...defaults.filters, ...parsed.filters },
+    }
   } catch {
     return { ...defaults }
   }
