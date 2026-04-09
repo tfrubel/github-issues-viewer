@@ -182,9 +182,9 @@
   }
   .grain-bg {
     background-image:
-      radial-gradient(at 12% 8%, color-mix(in srgb, var(--primary) 12%, transparent) 0px, transparent 50%),
-      radial-gradient(at 88% 4%, color-mix(in srgb, var(--primary) 8%, transparent) 0px, transparent 55%),
-      radial-gradient(at 60% 100%, color-mix(in srgb, var(--primary) 6%, transparent) 0px, transparent 60%);
+      radial-gradient(at 12% 8%, color-mix(in srgb, var(--primary) 12%, transparent) 0px, transparent 30%),
+      radial-gradient(at 88% 4%, color-mix(in srgb, var(--primary) 8%, transparent) 0px, transparent 15%),
+      radial-gradient(at 60% 100%, color-mix(in srgb, var(--primary) 6%, transparent) 0px, transparent 10%);
     background-attachment: fixed;
     background-repeat: no-repeat;
   }
