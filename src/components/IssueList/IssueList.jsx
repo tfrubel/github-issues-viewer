@@ -86,6 +86,10 @@ function IssueList({ onAuthFailure }) {
   const [filterAuthor, setFilterAuthor] = useState('')
   const [viewMode, setViewMode] = useState(initialPrefs.viewMode)
 
+  const PAGE_SIZE = 20
+  const [openVisible, setOpenVisible] = useState(PAGE_SIZE)
+  const [closedVisible, setClosedVisible] = useState(PAGE_SIZE)
+
   const loadIssues = useCallback(async (opts = {}) => {
     const { forceFresh = false, scope: s = scope } = opts
     try {
@@ -172,6 +176,14 @@ function IssueList({ onAuthFailure }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [allClosed, filterOrg, filterRepo, filterAuthor]
   )
+
+  useEffect(() => {
+    setOpenVisible(PAGE_SIZE)
+    setClosedVisible(PAGE_SIZE)
+  }, [filterOrg, filterRepo, filterAuthor, scope])
+
+  const visibleOpen = useMemo(() => filteredOpen.slice(0, openVisible), [filteredOpen, openVisible])
+  const visibleClosed = useMemo(() => filteredClosed.slice(0, closedVisible), [filteredClosed, closedVisible])
 
   const hasFilters = filterOrg || filterRepo || filterAuthor
   const canRefresh = shouldRefreshData(cacheKey(scope, 'both'))
@@ -365,11 +377,26 @@ function IssueList({ onAuthFailure }) {
               {filteredOpen.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-12 text-center italic">Nothing open. A rare and quiet day.</p>
               ) : (
-                filteredOpen.map(issue => (
+                visibleOpen.map(issue => (
                   <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
                 ))
               )}
             </div>
+            {filteredOpen.length > openVisible && (
+              <div className="flex flex-col items-center gap-1.5 py-5 border-t border-border/60 mt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOpenVisible(v => v + PAGE_SIZE)}
+                  className="h-8 px-4 rounded-full text-xs uppercase tracking-[0.16em] font-medium"
+                >
+                  Load more
+                </Button>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground tabular-nums">
+                  {openVisible} of {filteredOpen.length}
+                </span>
+              </div>
+            )}
           </ScrollArea>
         </section>
 
@@ -387,11 +414,26 @@ function IssueList({ onAuthFailure }) {
               {filteredClosed.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-12 text-center italic">No closed issues yet.</p>
               ) : (
-                filteredClosed.map(issue => (
+                visibleClosed.map(issue => (
                   <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
                 ))
               )}
             </div>
+            {filteredClosed.length > closedVisible && (
+              <div className="flex flex-col items-center gap-1.5 py-5 border-t border-border/60 mt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setClosedVisible(v => v + PAGE_SIZE)}
+                  className="h-8 px-4 rounded-full text-xs uppercase tracking-[0.16em] font-medium"
+                >
+                  Load more
+                </Button>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground tabular-nums">
+                  {closedVisible} of {filteredClosed.length}
+                </span>
+              </div>
+            )}
           </ScrollArea>
         </section>
       </div>
