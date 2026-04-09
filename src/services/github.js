@@ -117,6 +117,18 @@ export const fetchUserIssues = async (pat, username, { state = 'open', scope = '
                   color
                 }
               }
+              comments(first: 20) {
+                totalCount
+                nodes {
+                  id
+                  body
+                  createdAt
+                  url
+                  author {
+                    login
+                  }
+                }
+              }
               repository {
                 id
                 nameWithOwner

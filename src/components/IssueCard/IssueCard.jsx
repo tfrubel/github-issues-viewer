@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown'
-import { ExternalLink, FileText, GitBranch } from 'lucide-react'
+import { ExternalLink, FileText, GitBranch, MessageSquare } from 'lucide-react'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog'
@@ -9,7 +9,124 @@ function labelTextColor(hex) {
   return parseInt(hex, 16) > 0xffffff / 2 ? '#000' : '#fff'
 }
 
-function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body, children }) {
+const markdownProseClasses = `prose prose-sm max-w-none
+  [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mb-2 [&_h1]:mt-4
+  [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3
+  [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mb-1 [&_h3]:mt-3
+  [&_h4]:text-sm [&_h4]:font-medium [&_h4]:mb-1
+  [&_h5]:text-xs [&_h5]:font-medium [&_h6]:text-xs
+  [&_p]:mb-3
+  [&_ul]:mb-3 [&_ul]:pl-5 [&_ul]:list-disc
+  [&_ol]:mb-3 [&_ol]:pl-5 [&_ol]:list-decimal
+  [&_li]:mb-1
+  [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
+  [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:text-xs
+  [&_pre_code]:bg-transparent [&_pre_code]:p-0
+  [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_blockquote]:mb-3
+  [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2
+  [&_hr]:border-border [&_hr]:my-4
+  [&_img]:max-w-full [&_img]:rounded
+  [&_table]:w-full [&_table]:text-xs [&_table]:mb-3
+  [&_th]:text-left [&_th]:font-medium [&_th]:border-b [&_th]:border-border [&_th]:pb-1 [&_th]:pr-3
+  [&_td]:border-b [&_td]:border-border/50 [&_td]:py-1 [&_td]:pr-3`
+
+function CommentThread({ comments, issueUrl }) {
+  const nodes = comments?.nodes || []
+  const total = comments?.totalCount || 0
+  const remaining = total - nodes.length
+
+  return (
+    <section className="mt-6 pt-5 border-t border-border">
+      <header className="flex items-baseline justify-between mb-4">
+        <div className="flex items-baseline gap-3">
+          <span className="font-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Discussion
+          </span>
+          <h4 className="font-display text-xl font-normal italic text-foreground">
+            {total === 0 ? 'No comments yet' : total === 1 ? '1 comment' : `${total} comments`}
+          </h4>
+        </div>
+        {total > 0 && (
+          <a
+            href={issueUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View on GitHub →
+          </a>
+        )}
+      </header>
+
+      {nodes.length === 0 ? (
+        <p className="text-sm italic text-muted-foreground py-4">
+          The conversation hasn't started.
+        </p>
+      ) : (
+        <ol className="space-y-5">
+          {nodes.map((c, i) => {
+            const date = new Date(c.createdAt).toLocaleDateString('en-US', {
+              year: 'numeric', month: 'short', day: 'numeric',
+            })
+            return (
+              <li key={c.id} className="flex gap-3">
+                <div className="flex flex-col items-center shrink-0 pt-1">
+                  {c.author?.login ? (
+                    <img
+                      src={`https://github.com/${c.author.login}.png?size=64`}
+                      alt={c.author.login}
+                      className="w-8 h-8 rounded-full border border-border"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-muted border border-border" />
+                  )}
+                  <span className="font-display text-[10px] text-muted-foreground/60 mt-1 tabular-nums">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0 rounded-xl border border-border bg-muted/30 px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+                    <span className="text-sm font-medium text-foreground">
+                      {c.author?.login || 'ghost'}
+                    </span>
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {date}
+                    </a>
+                  </div>
+                  <div className={`text-sm text-foreground/80 leading-relaxed ${markdownProseClasses}`}>
+                    <ReactMarkdown>{c.body || '*(empty comment)*'}</ReactMarkdown>
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+
+      {remaining > 0 && (
+        <div className="mt-5 text-center">
+          <a
+            href={issueUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="inline-block w-6 h-px bg-border" />
+            {remaining} more {remaining === 1 ? 'comment' : 'comments'} on GitHub
+            <span className="inline-block w-6 h-px bg-border" />
+          </a>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body, comments, children }) {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -55,28 +172,9 @@ function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body
           </div>
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <div className="px-5 py-4 text-sm text-foreground/80 leading-relaxed
-            prose prose-sm max-w-none
-            [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mb-2 [&_h1]:mt-4
-            [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3
-            [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mb-1 [&_h3]:mt-3
-            [&_h4]:text-sm [&_h4]:font-medium [&_h4]:mb-1
-            [&_h5]:text-xs [&_h5]:font-medium [&_h6]:text-xs
-            [&_p]:mb-3
-            [&_ul]:mb-3 [&_ul]:pl-5 [&_ul]:list-disc
-            [&_ol]:mb-3 [&_ol]:pl-5 [&_ol]:list-decimal
-            [&_li]:mb-1
-            [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
-            [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:text-xs
-            [&_pre_code]:bg-transparent [&_pre_code]:p-0
-            [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_blockquote]:mb-3
-            [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2
-            [&_hr]:border-border [&_hr]:my-4
-            [&_img]:max-w-full [&_img]:rounded
-            [&_table]:w-full [&_table]:text-xs [&_table]:mb-3
-            [&_th]:text-left [&_th]:font-medium [&_th]:border-b [&_th]:border-border [&_th]:pb-1 [&_th]:pr-3
-            [&_td]:border-b [&_td]:border-border/50 [&_td]:py-1 [&_td]:pr-3 content">
+          <div className={`px-5 py-4 text-sm text-foreground/80 leading-relaxed ${markdownProseClasses} content`}>
             <ReactMarkdown>{body}</ReactMarkdown>
+            <CommentThread comments={comments} issueUrl={url} />
           </div>
         </div>
       </DialogContent>
@@ -85,9 +183,12 @@ function IssueDialog({ url, title, formattedDate, author, isClosed, labels, body
 }
 
 function IssueCard({ issue, viewMode = 'grid' }) {
-  const { title, body, url, createdAt, labels, state, author, _repoKey } = issue
+  const { title, body, url, createdAt, labels, state, author, _repoKey, comments } = issue
   const isClosed = state === 'CLOSED'
   const hasBody = !!(body && body.trim())
+  const commentCount = comments?.totalCount || 0
+  const hasComments = commentCount > 0
+  const isOpenable = hasBody || hasComments
 
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -101,7 +202,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
       <div
         className={cn(
           'flex gap-2.5 px-2.5 py-2 rounded-none border-b border-border/50 last:border-0 transition-colors group',
-          hasBody ? 'cursor-pointer hover:bg-muted/50' : 'hover:bg-muted/30'
+          isOpenable ? 'cursor-pointer hover:bg-muted/50' : 'hover:bg-muted/30'
         )}
       >
         {/* State dot — aligned to first row */}
@@ -125,9 +226,18 @@ function IssueCard({ issue, viewMode = 'grid' }) {
             >
               {title}
             </span>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               {hasBody && (
                 <FileText className="w-3.5 h-3.5 text-muted-foreground/40" title="Has description" />
+              )}
+              {hasComments && (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground/70 tabular-nums"
+                  title={`${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  {commentCount}
+                </span>
               )}
               <a
                 href={url}
@@ -183,11 +293,11 @@ function IssueCard({ issue, viewMode = 'grid' }) {
       </div>
     )
 
-    if (!hasBody) return row
+    if (!isOpenable) return row
     return (
       <IssueDialog
         url={url} title={title} formattedDate={formattedDate}
-        author={author} isClosed={isClosed} labels={labels} body={body}
+        author={author} isClosed={isClosed} labels={labels} body={body} comments={comments}
       >
         {row}
       </IssueDialog>
@@ -202,7 +312,7 @@ function IssueCard({ issue, viewMode = 'grid' }) {
         'gap-0 py-0 shadow-none hover:shadow-md transition-all duration-200 border-border/60',
         'border-l-[3px]',
         isClosed ? 'border-l-muted-foreground/30' : 'border-l-primary',
-        hasBody && 'cursor-pointer'
+        isOpenable && 'cursor-pointer'
       )}
     >
       <CardContent className="p-3">
@@ -218,6 +328,15 @@ function IssueCard({ issue, viewMode = 'grid' }) {
             {hasBody && (
               <span className="p-1 rounded-md text-muted-foreground/50" title="Has description">
                 <FileText className="w-3.5 h-3.5" />
+              </span>
+            )}
+            {hasComments && (
+              <span
+                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[11px] text-muted-foreground/70 tabular-nums"
+                title={`${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {commentCount}
               </span>
             )}
             <a
@@ -277,11 +396,11 @@ function IssueCard({ issue, viewMode = 'grid' }) {
     </Card>
   )
 
-  if (!hasBody) return card
+  if (!isOpenable) return card
   return (
     <IssueDialog
       url={url} title={title} formattedDate={formattedDate}
-      author={author} isClosed={isClosed} labels={labels} body={body}
+      author={author} isClosed={isClosed} labels={labels} body={body} comments={comments}
     >
       <div>{card}</div>
     </IssueDialog>
