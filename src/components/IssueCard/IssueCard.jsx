@@ -12,10 +12,55 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+// For light-colored labels (e.g. pale blue), darken to a rich, readable shade
+// by preserving hue but reducing lightness and boosting saturation via HSL.
+function deepenLabelColor(hex) {
+  const r = parseInt(hex.slice(0, 2), 16) / 255
+  const g = parseInt(hex.slice(2, 4), 16) / 255
+  const b = parseInt(hex.slice(4, 6), 16) / 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+
+  // Already a dark color — use as-is at full opacity
+  if (l <= 0.55) return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, 0.9)`
+
+  // Compute hue and saturation
+  const d = max - min
+  const s = d === 0 ? 0 : (l > 0.5 ? d / (2 - max - min) : d / (max + min))
+  let h = 0
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+    else if (max === g) h = ((b - r) / d + 2) / 6
+    else h = ((r - g) / d + 4) / 6
+  }
+
+  // Target: same hue, boosted saturation, noticeably darker
+  const newL = 0.42
+  const newS = Math.min(Math.max(s * 1.2, 0.6), 0.78)
+
+  const q = newL < 0.5 ? newL * (1 + newS) : newL + newS - newL * newS
+  const p = 2 * newL - q
+  const hue2rgb = (t) => {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return p + (q - p) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+    return p
+  }
+
+  const ro = Math.round(hue2rgb(h + 1 / 3) * 255)
+  const go = Math.round(hue2rgb(h) * 255)
+  const bo = Math.round(hue2rgb(h - 1 / 3) * 255)
+  return `rgb(${ro}, ${go}, ${bo})`
+}
+
 function labelStyle(hex) {
   return {
     backgroundColor: hexToRgba(hex, 0.12),
-    color: hexToRgba(hex, 0.85),
+    color: deepenLabelColor(hex),
     border: `1px solid ${hexToRgba(hex, 0.22)}`,
   }
 }
