@@ -188,7 +188,15 @@ function IssueList({ onAuthFailure }) {
       if (noFilters) {
         setBaseOrgData(data.orgGroups)
       } else {
-        setBaseOrgData(prev => (Object.keys(prev).length ? prev : data.orgGroups))
+        // Always refresh base options for the current scope by fetching the unfiltered view
+        // (cached, so usually free). This keeps filter dropdowns showing the full set of
+        // orgs/repos/authors available in the active tab.
+        try {
+          const baseData = await fetchAllIssues({ scope: s, forceFresh: false, filters: {} })
+          setBaseOrgData(baseData.orgGroups)
+        } catch {
+          setBaseOrgData(prev => (Object.keys(prev).length ? prev : data.orgGroups))
+        }
       }
       setOpenPageInfo(data.openPageInfo || { hasNextPage: false, endCursor: null })
       setClosedPageInfo(data.closedPageInfo || { hasNextPage: false, endCursor: null })
@@ -211,12 +219,39 @@ function IssueList({ onAuthFailure }) {
   const handleScopeChange = (val) => {
     updatePreference({ scope: val })
     setScope(val)
-    const clearedFilters = { orgs: [], repos: [], authors: [] }
-    setFilterOrgs([])
-    setFilterRepos([])
-    setFilterAuthors([])
-    updatePreference({ filters: clearedFilters })
+    // Reset baseOrgData so the next fetch repopulates option lists for the new scope.
+    // Filters are intentionally preserved; a separate effect prunes any that no longer apply.
+    setBaseOrgData({})
   }
+
+  // Prune filters to values still present in the current scope's data.
+  useEffect(() => {
+    if (!Object.keys(baseOrgData).length) return
+    const orgSet = new Set()
+    const repoSet = new Set()
+    const authorSet = new Set()
+    for (const [org, orgRepos] of Object.entries(baseOrgData)) {
+      orgSet.add(org)
+      for (const [, repo] of Object.entries(orgRepos)) {
+        repoSet.add(repo.nameWithOwner)
+        for (const issue of repo.open) if (issue.author?.login) authorSet.add(issue.author.login)
+        for (const issue of repo.closed) if (issue.author?.login) authorSet.add(issue.author.login)
+      }
+    }
+    const nextOrgs = filterOrgs.filter(o => orgSet.has(o))
+    const nextRepos = filterRepos.filter(r => repoSet.has(r))
+    const nextAuthors = filterAuthors.filter(a => authorSet.has(a))
+    const changed =
+      nextOrgs.length !== filterOrgs.length ||
+      nextRepos.length !== filterRepos.length ||
+      nextAuthors.length !== filterAuthors.length
+    if (changed) {
+      setFilterOrgs(nextOrgs)
+      setFilterRepos(nextRepos)
+      setFilterAuthors(nextAuthors)
+      updatePreference({ filters: { orgs: nextOrgs, repos: nextRepos, authors: nextAuthors } })
+    }
+  }, [baseOrgData, filterOrgs, filterRepos, filterAuthors])
 
   const { allOpen, allClosed } = useMemo(() => {
     const allOpen = []
