@@ -4,7 +4,6 @@ import { shouldRefreshData, cacheKey } from '../../utils/cache'
 import { getPreferences, updatePreference } from '../../utils/preferences'
 import IssueCard from '../IssueCard/IssueCard'
 import { Button } from '../ui/button'
-import { Badge } from '../ui/badge'
 import { ScrollArea } from '../ui/scroll-area'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../ui/select'
 import { Building2, GitBranch, User, RefreshCw, X, Info, LayoutGrid, List } from 'lucide-react'
@@ -185,6 +184,27 @@ function IssueList({ onAuthFailure }) {
     }
   }
 
+  const totalRepos = repoOptions.length
+  const totalOrgs = orgOptions.length
+
+  const stats = (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border rounded-xl overflow-hidden border border-border mb-6">
+      {[
+        { label: 'Open', value: filteredOpen.length, accent: true },
+        { label: 'Closed', value: filteredClosed.length },
+        { label: 'Repositories', value: totalRepos },
+        { label: 'Organizations', value: totalOrgs },
+      ].map((s) => (
+        <div key={s.label} className="bg-background px-5 py-4 flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{s.label}</span>
+          <span className={`font-display text-3xl font-light tabular-nums leading-none ${s.accent ? 'text-primary' : 'text-foreground'}`}>
+            {s.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+
   const controls = (
     <div className="flex flex-col items-center mb-5 px-4 space-y-3">
       {/* Scope */}
@@ -326,23 +346,24 @@ function IssueList({ onAuthFailure }) {
   )
 
   return (
-    <div>
+    <div className="px-4">
       {controls}
+      <div className="px-0">{stats}</div>
       {listControls}
-      <div className="grid grid-cols-2 gap-4 px-4">
+      <div className="grid grid-cols-2 gap-6">
         {/* Open Issues */}
-        <div className="flex flex-col min-h-0">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-            <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" />
-            <h3 className="font-semibold text-foreground">Open Issues</h3>
-            <Badge variant="outline" className="border-primary/40 text-primary tabular-nums">
-              {filteredOpen.length}
-            </Badge>
+        <section className="flex flex-col min-h-0">
+          <div className="flex items-baseline justify-between mb-3 pb-3 border-b border-border">
+            <div className="flex items-baseline gap-3">
+              <span className="font-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground">No. 01</span>
+              <h3 className="font-display text-2xl font-normal italic text-foreground">Open</h3>
+            </div>
+            <span className="text-xs text-muted-foreground tabular-nums">{filteredOpen.length} items</span>
           </div>
-          <ScrollArea className="h-[calc(100vh-320px)] rounded-lg border border-border bg-muted/30">
+          <ScrollArea className="h-[calc(100vh-380px)] rounded-xl border border-border bg-muted/30">
             <div className={viewMode === 'list' ? 'p-1' : 'grid grid-cols-2 gap-2 p-2'}>
               {filteredOpen.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-8 text-center">No open issues</p>
+                <p className="text-muted-foreground text-sm py-12 text-center italic">Nothing open. A rare and quiet day.</p>
               ) : (
                 filteredOpen.map(issue => (
                   <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
@@ -350,21 +371,21 @@ function IssueList({ onAuthFailure }) {
               )}
             </div>
           </ScrollArea>
-        </div>
+        </section>
 
         {/* Closed Issues */}
-        <div className="flex flex-col min-h-0">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-            <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 shrink-0" />
-            <h3 className="font-semibold text-foreground">Closed Issues</h3>
-            <Badge variant="secondary" className="tabular-nums">
-              {filteredClosed.length}
-            </Badge>
+        <section className="flex flex-col min-h-0">
+          <div className="flex items-baseline justify-between mb-3 pb-3 border-b border-border">
+            <div className="flex items-baseline gap-3">
+              <span className="font-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground">No. 02</span>
+              <h3 className="font-display text-2xl font-normal italic text-muted-foreground">Closed</h3>
+            </div>
+            <span className="text-xs text-muted-foreground tabular-nums">{filteredClosed.length} items</span>
           </div>
-          <ScrollArea className="h-[calc(100vh-320px)] rounded-lg border border-border bg-muted/30">
+          <ScrollArea className="h-[calc(100vh-380px)] rounded-xl border border-border bg-muted/30">
             <div className={viewMode === 'list' ? 'p-1' : 'grid grid-cols-2 gap-2 p-2'}>
               {filteredClosed.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-8 text-center">No closed issues</p>
+                <p className="text-muted-foreground text-sm py-12 text-center italic">No closed issues yet.</p>
               ) : (
                 filteredClosed.map(issue => (
                   <IssueCard key={issue.id} issue={issue} viewMode={viewMode} />
@@ -372,7 +393,7 @@ function IssueList({ onAuthFailure }) {
               )}
             </div>
           </ScrollArea>
-        </div>
+        </section>
       </div>
     </div>
   )
