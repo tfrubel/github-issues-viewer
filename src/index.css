@@ -173,3 +173,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 50, "WONK" 0;
+  }
+  .grain-bg {
+    background-image:
+      radial-gradient(at 12% 8%, color-mix(in srgb, var(--primary) 12%, transparent) 0px, transparent 50%),
+      radial-gradient(at 88% 4%, color-mix(in srgb, var(--primary) 8%, transparent) 0px, transparent 55%),
+      radial-gradient(at 60% 100%, color-mix(in srgb, var(--primary) 6%, transparent) 0px, transparent 60%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+}
