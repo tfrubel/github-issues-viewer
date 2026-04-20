@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'github_issues_cache_'
-const RATE_LIMIT_SECONDS = 30
+const RATE_LIMIT_SECONDS = 10
 
 export const cacheKey = (scope, state) => `${CACHE_PREFIX}${scope}_${state}`
 
